@@ -13,16 +13,20 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 
 | Module | Shapes | Grounding |
 |---|---|---|
-| `money` | `Currency` (USD), `Money` (integer cents) | AURAD-0002 |
-| `advisor` | `AdvisorId`, `Advisor` (persona) | AURAD-0001 |
-| `chat` | `Message`, `MessageDirection`, `AdvisorPresence`, `SendMessageRequest` | AURAI-0002, AURAD-0001/0003 |
-| `session` | `PaidSession`, `SessionStatus` — *v0, `AURAT-0008` owns final* | AURAD-0002 |
-| `wallet` | `Wallet` — *v0, `AURAT-0007` owns final* | AURAD-0002 |
+| `money` | `Currency` (USD) | AURAD-0002 |
+| `advisor` | `AdvisorId` | AURAD-0001 |
+| `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003 |
+| `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
+| `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008 |
+| `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse` | AURAD-0002, AURAT-0007 |
 | `envelope` | `ApiError` | AURAI-0002 |
 
-Message/session/wallet shapes marked *v0* are deliberately minimal starting points;
-the owning `AURAT-*` task refines them. Chat primitives (`Message`, presence) are
-stable.
+Every shape mirrors a route the BFF actually serves. **Money is always an
+integer of minor units** on the field that owns it (`balanceMinor`,
+`costMinor`, `priceMinorPerMinute`, `amountMinor`) — no money object, no
+floats. Session and wallet shapes were aligned to the as-built BFF in
+`v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
+`WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
 
 ## Consuming it (git dependency — no registry publish)
 
@@ -31,7 +35,7 @@ Add to `aura-bff` / `aura-app` `package.json`, pinned to a tag or commit:
 ```jsonc
 {
   "dependencies": {
-    "@aura/contracts": "git+ssh://git@github.com/RomSribn/aura-contracts.git#v0.1.0"
+    "@aura/contracts": "git+ssh://git@github.com/RomSribn/aura-contracts.git#v0.3.0"
   }
 }
 ```
@@ -40,7 +44,7 @@ On install, npm runs the `prepare` script (builds `dist/` with tsup), so consume
 get compiled ESM + CJS + `.d.ts` without a registry.
 
 ```ts
-import { Message, SendMessageRequest, type Advisor } from '@aura/contracts';
+import { Message, SendMessageRequest, type Session } from '@aura/contracts';
 
 const parsed = SendMessageRequest.parse(body); // validate at the edge
 ```

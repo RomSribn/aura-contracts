@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AdvisorId } from './advisor';
+import { Session } from './session';
 
 /**
  * Chat contract — mirrors the BFF as built by AURAT-0005 (aura-bff
@@ -8,8 +9,13 @@ import { AdvisorId } from './advisor';
  *
  * Direction is from the user's point of view. The app maps its per-advisor
  * thread 1:1 to a BFF conversation (AURAD-0003).
+ *
+ * `system` = BFF-authored session markers ("Your session has started /
+ * finished", AURAT-0008): stored and delivered as ordinary messages, so they
+ * arrive through history and the socket inline with the conversation, and the
+ * app renders them as the red session separators (AURAD-0002).
  */
-export const MessageDirection = z.enum(['user', 'advisor']);
+export const MessageDirection = z.enum(['user', 'advisor', 'system']);
 export type MessageDirection = z.infer<typeof MessageDirection>;
 
 /**
@@ -53,15 +59,24 @@ export type HistoryResponse = z.infer<typeof HistoryResponse>;
 
 /**
  * Server → app WebSocket events (`/ws?token=<Firebase ID token>`).
- * `message.new` ships today (AURAT-0005); `presence.update` and
- * `typing.update` are the persona-level events of AURAD-0001 — emission is
- * AURAT-0009, the app already handles them (and their absence) gracefully.
+ * `message.new` (AURAT-0005) and `session.updated` (AURAT-0008) ship today;
+ * `presence.update` and `typing.update` are the persona-level events of
+ * AURAD-0001 — emission is AURAT-0009, the app already handles them (and
+ * their absence) gracefully.
  */
 export const WsServerEvent = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('message.new'),
     advisorId: AdvisorId,
     message: Message,
+  }),
+  // Session lifecycle push (book / extend / finish). Advisory only: the app
+  // derives the running block from `endsAt` and refetches the active session
+  // itself, so it stays correct while backgrounded or off the socket.
+  z.object({
+    type: z.literal('session.updated'),
+    advisorId: AdvisorId,
+    session: Session,
   }),
   z.object({
     type: z.literal('presence.update'),

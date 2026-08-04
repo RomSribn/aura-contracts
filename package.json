@@ -1,6 +1,6 @@
 {
   "name": "@aura/contracts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Shared Zod schemas + TypeScript types for the Aura app <-> BFF contract.",
   "license": "UNLICENSED",
   "type": "module",
