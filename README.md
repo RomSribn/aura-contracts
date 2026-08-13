@@ -14,7 +14,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | Module | Shapes | Grounding |
 |---|---|---|
 | `money` | `Currency` (USD) | AURAD-0002 |
-| `advisor` | `AdvisorId` | AURAD-0001 |
+| `advisor` | `AdvisorId`, `Advisor`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013 |
 | `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008 |
@@ -28,6 +28,11 @@ floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
 
+`v0.4.0` adds the **advisor catalog** (`AURAT-0013`): the BFF now serves
+personas from Postgres at `GET /v1/advisors`, replacing the hardcoded
+`ADVISORS` array the app shipped while there was no backend for them. Additive
+only — no existing shape changed.
+
 ## Consuming it (git dependency — no registry publish)
 
 Add to `aura-bff` / `aura-app` `package.json`, pinned to a tag or commit:
@@ -35,7 +40,7 @@ Add to `aura-bff` / `aura-app` `package.json`, pinned to a tag or commit:
 ```jsonc
 {
   "dependencies": {
-    "@aura/contracts": "git+ssh://git@github.com/RomSribn/aura-contracts.git#v0.3.0"
+    "@aura/contracts": "git+ssh://git@github.com/RomSribn/aura-contracts.git#v0.4.0"
   }
 }
 ```
