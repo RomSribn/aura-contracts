@@ -64,18 +64,36 @@ export const Session = z.object({
 export type Session = z.infer<typeof Session>;
 
 /**
- * Body of `POST /v1/advisors/:advisorId/sessions`.
+ * Body of `POST /v1/advisors/:advisorId/sessions` — **exactly one** of a slot
+ * or `startNow`.
  *
- * `startsAt` must be a slot the availability endpoint offered and `minutes` one
- * of the durations pricing offers — the server re-checks both, since a slot can
- * be taken between the read and the booking. `idempotencyKey` is
- * client-generated: replaying it must never debit twice.
+ * `startsAt` is the scheduled path: a slot availability offered, re-checked by
+ * the server because it can be taken between the read and the booking.
+ *
+ * `startNow` is the instant path, and it is a **flag rather than a timestamp**
+ * on purpose: a client-sent "now" is already in the past by the time the
+ * request lands, so accepting one would mean a tolerance window the width of
+ * the network. The server stamps the start from its own clock.
+ *
+ * Neither field is a default for the other. A missing `startsAt` is never read
+ * as "now" — that would turn a forgotten field into a charged, running session.
+ *
+ * `idempotencyKey` is client-generated: replaying it must never debit twice.
  */
-export const BookSessionRequest = z.object({
-  startsAt: z.string(),
-  minutes: z.number().int().positive(),
-  idempotencyKey: z.string().uuid(),
-});
+export const BookSessionRequest = z
+  .object({
+    startsAt: z.string().optional(),
+    startNow: z.boolean().optional(),
+    minutes: z.number().int().positive(),
+    idempotencyKey: z.string().uuid(),
+  })
+  .refine(
+    request => (request.startNow === true) !== (request.startsAt !== undefined),
+    {
+      message: 'send exactly one of startsAt or startNow: true',
+      path: ['startsAt'],
+    },
+  );
 export type BookSessionRequest = z.infer<typeof BookSessionRequest>;
 
 /**
@@ -142,8 +160,9 @@ export type SessionsResponse = z.infer<typeof SessionsResponse>;
 
 /**
  * One bookable start time. The server decides what is offerable — a slot inside
- * its own lead time, or one already taken, simply is not `available`, and the
- * app never re-derives that from a clock it does not own.
+ * its own lead time, or one a session of the requested length would not fit
+ * into, simply is not `available`, and the app never re-derives that from a
+ * clock it does not own.
  */
 export const SessionSlot = z.object({
   /** ISO 8601 start. */
@@ -168,6 +187,14 @@ export type SessionSlot = z.infer<typeof SessionSlot>;
 export const AvailabilityQuery = z.object({
   days: z.coerce.number().int().min(1).max(14).default(14),
   tz: z.string().optional(),
+  /**
+   * How long the session is. Under interval occupancy a gap can fit ten
+   * minutes and not thirty, so `available` answers a different question per
+   * duration — send it, and re-read when the user changes the block.
+   * Omitted, the server answers for its shortest block, which is the most
+   * permissive reading and will over-offer.
+   */
+  minutes: z.coerce.number().int().positive().optional(),
 });
 export type AvailabilityQuery = z.infer<typeof AvailabilityQuery>;
 
@@ -178,6 +205,16 @@ export type AvailabilityQuery = z.infer<typeof AvailabilityQuery>;
  * can show a day as full rather than hiding it and leaving the user to guess.
  */
 export const AvailabilityResponse = z.object({
+  /**
+   * Whether a session of the query's `minutes` could start **this second**:
+   * the advisor free for the whole window, and the caller not already in a
+   * live session.
+   *
+   * The app can derive neither half — it owns neither the server's clock nor
+   * any view of other clients' bookings — so without this the quick sheet
+   * would offer a "now" that comes back 409.
+   */
+  instantAvailable: z.boolean(),
   days: z.array(
     z.object({
       /** `YYYY-MM-DD` in the query's `tz`, or the server's zone if none. */
