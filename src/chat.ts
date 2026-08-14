@@ -70,9 +70,12 @@ export const WsServerEvent = z.discriminatedUnion('type', [
     advisorId: AdvisorId,
     message: Message,
   }),
-  // Session lifecycle push (book / extend / finish). Advisory only: the app
-  // derives the running block from `endsAt` and refetches the active session
-  // itself, so it stays correct while backgrounded or off the socket.
+  // Session lifecycle push (book / extend / finish / cancel, and the
+  // SCHEDULED → ACTIVE transition the meter makes on its own). Advisory only:
+  // the app derives the running block from `endsAt` and refetches the session
+  // itself, so it stays correct while backgrounded or off the socket — which
+  // matters more now that a session can start while the user is elsewhere in
+  // the app (AURAD-0009).
   z.object({
     type: z.literal('session.updated'),
     advisorId: AdvisorId,
