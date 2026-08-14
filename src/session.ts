@@ -153,7 +153,26 @@ export const SessionSlot = z.object({
 export type SessionSlot = z.infer<typeof SessionSlot>;
 
 /**
- * Response of `GET /v1/advisors/:advisorId/sessions/availability?days=N`.
+ * Query of `GET /v1/advisors/:advisorId/sessions/availability`.
+ *
+ * `tz` is an IANA zone and decides **only which day a slot is filed under**,
+ * never when it happens: the grid is anchored in UTC because occupancy is
+ * global — every client has to be talking about the same instants. Omitting it
+ * groups by the server's configured zone, so a client whose user is hours away
+ * from it sees evening slots listed under the neighbouring day. Send the
+ * device's zone.
+ *
+ * `days` is capped server-side by the booking horizon; asking for more is an
+ * error rather than a silent trim.
+ */
+export const AvailabilityQuery = z.object({
+  days: z.coerce.number().int().min(1).max(14).default(14),
+  tz: z.string().optional(),
+});
+export type AvailabilityQuery = z.infer<typeof AvailabilityQuery>;
+
+/**
+ * Response of `GET /v1/advisors/:advisorId/sessions/availability`.
  *
  * Days come back whole — including ones with nothing free — so the date strip
  * can show a day as full rather than hiding it and leaving the user to guess.
@@ -161,7 +180,7 @@ export type SessionSlot = z.infer<typeof SessionSlot>;
 export const AvailabilityResponse = z.object({
   days: z.array(
     z.object({
-      /** `YYYY-MM-DD` in the advisor's booking timezone. */
+      /** `YYYY-MM-DD` in the query's `tz`, or the server's zone if none. */
       date: z.string(),
       slots: z.array(SessionSlot),
     }),
