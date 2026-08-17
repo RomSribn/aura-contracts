@@ -18,7 +18,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008 |
-| `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse` | AURAD-0002, AURAT-0007 |
+| `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010 |
 | `envelope` | `ApiError` | AURAI-0002 |
 
 Every shape mirrors a route the BFF actually serves. **Money is always an
@@ -27,6 +27,13 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.7.0` adds the **Google Play top-up rail** (`AURAD-0010`, app half
+`AURAT-0026`, BFF half `AURAT-0027`): `POST /v1/wallet/top-ups/google` takes a
+Play purchase token and credits the wallet only after the BFF has verified it
+with Google. The request carries **no amount** — the credit comes from the
+BFF's own tier table keyed by `productId`, because a client that names its own
+credit is a client that mints balance. Additive only.
 
 `v0.4.0` adds the **advisor catalog** (`AURAT-0013`): the BFF now serves
 personas from Postgres at `GET /v1/advisors`, replacing the hardcoded
