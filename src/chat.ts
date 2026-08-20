@@ -3,9 +3,9 @@ import { AdvisorId } from './advisor';
 import { Session } from './session';
 
 /**
- * Chat contract — mirrors the BFF as built by AURAT-0005 (aura-bff
- * `src/contracts/message.ts` is the runtime ground truth until the BFF
- * migrates onto this package).
+ * Chat contract. Since AURAT-0034 this package **is** the single definition —
+ * the BFF's `src/contracts/message.ts` re-exports these shapes rather than
+ * keeping a second copy of them.
  *
  * Direction is from the user's point of view. The app maps its per-advisor
  * thread 1:1 to a BFF conversation (AURAD-0003).
@@ -19,6 +19,45 @@ export const MessageDirection = z.enum(['user', 'advisor', 'system']);
 export type MessageDirection = z.infer<typeof MessageDirection>;
 
 /**
+ * What a chat attachment actually is, as far as the app is concerned. Mirrors
+ * the four kinds a chatter can send from the agent desk; everything else the
+ * provider can enumerate (locations, contact cards, channel fallbacks) arrives
+ * from messenger channels we do not have, and is dropped before it reaches
+ * this contract (`AURAF-0011`).
+ */
+export const AttachmentKind = z.enum(['image', 'audio', 'video', 'file']);
+export type AttachmentKind = z.infer<typeof AttachmentKind>;
+
+/**
+ * One file hanging off a message (`AURAF-0011`, `AURAD-0011`).
+ *
+ * There is deliberately **no URL here, of any kind**. `id` is the BFF's own
+ * opaque handle, and the bytes come from `GET /v1/attachments/:id` — an
+ * authenticated route on our own host. Two independent reasons, either of which
+ * would be enough on its own: the agent desk's own link is *unauthenticated*
+ * (verified — a request with no headers returns the file), so handing it out
+ * would make a leaked link a permanent, unrevocable download; and the provider
+ * stays sealed behind the BFF, so its host never reaches a device. A
+ * *pre-signed* URL is not the answer either: the app caches the feed, and a URL
+ * that expires turns into broken images an hour after the history loaded.
+ *
+ * `width`/`height` are `null` for anything the desk did not measure — carrying
+ * the null is honest, hiding the field would not be.
+ */
+export const MessageAttachment = z.object({
+  id: z.string(),
+  kind: AttachmentKind,
+  /** MIME type — what the app picks a renderer by. */
+  contentType: z.string(),
+  /** Original upload name, sanitized; safe to display and to save as. */
+  fileName: z.string(),
+  fileSizeBytes: z.number().int().nonnegative().nullable(),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+});
+export type MessageAttachment = z.infer<typeof MessageAttachment>;
+
+/**
  * A chat message. `id` is the BFF's own orderable id — Chatwoot message ids
  * never leave the BFF; history pages arrive already sorted ascending.
  * `createdAt` is ISO-8601 (the agent desk's authoritative send time).
@@ -30,6 +69,13 @@ export const Message = z.object({
   direction: MessageDirection,
   content: z.string(),
   createdAt: z.string(),
+  /**
+   * Files sent with this message, in the order the desk lists them. An
+   * attachment-only message has `content: ''` — which is why `content` did not
+   * need to change to carry attachments, and why a client built against an
+   * earlier version keeps parsing today's payloads.
+   */
+  attachments: z.array(MessageAttachment).default([]),
 });
 export type Message = z.infer<typeof Message>;
 
