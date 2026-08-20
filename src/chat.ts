@@ -44,6 +44,21 @@ export type AttachmentKind = z.infer<typeof AttachmentKind>;
  * `width`/`height` are `null` for anything the desk did not measure — carrying
  * the null is honest, hiding the field would not be.
  */
+/**
+ * Path-parameter guard for `GET /v1/attachments/:attachmentId`.
+ *
+ * Strict on the way IN and deliberately absent from `MessageAttachment.id`
+ * below, which stays a plain string. That asymmetry is the lesson of v0.8.2:
+ * `SessionId` was briefly applied to a *response* field too, where a stricter
+ * format would have rejected our own data the day the id generator changed.
+ * A value arriving from a device is checked before it reaches the database; a
+ * value we minted ourselves is not re-checked on the way out.
+ */
+export const AttachmentId = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,64}$/, 'attachmentId must be 1-64 chars of [A-Za-z0-9_-]');
+export type AttachmentId = z.infer<typeof AttachmentId>;
+
 export const MessageAttachment = z.object({
   id: z.string(),
   kind: AttachmentKind,
