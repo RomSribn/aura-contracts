@@ -17,6 +17,19 @@ import { AdvisorId } from './advisor';
  * computes the charge and moves the money inside a locked transaction
  * (`AURAT-0008` D1).
  */
+/**
+ * Формат идентификатора сессии. Строгий по той же причине, что и `AdvisorId`:
+ * значение приходит из приложения в путь запроса, и сервер обязан отвергнуть
+ * непохожее до похода в базу. Перенесено из BFF при объединении контрактов
+ * (AURAT-0034) — здесь такой схемы не было вовсе, а `Session.id` был просто
+ * `z.string()`, так что подключение пакета «как есть» сняло бы проверку с
+ * четырёх эндпойнтов.
+ */
+export const SessionId = z
+  .string()
+  .regex(/^[a-z0-9]{1,64}$/, 'sessionId must be 1-64 chars of [a-z0-9]');
+export type SessionId = z.infer<typeof SessionId>;
+
 export const SessionStatus = z.enum([
   /** Booked and paid for, waiting for its slot. */
   'SCHEDULED',
@@ -33,7 +46,7 @@ export const SessionFinishReason = z.enum(['EXHAUSTED', 'ENDED_EARLY']);
 export type SessionFinishReason = z.infer<typeof SessionFinishReason>;
 
 export const Session = z.object({
-  id: z.string(),
+  id: SessionId,
   advisorId: AdvisorId,
   status: SessionStatus,
   /** Total booked minutes including extensions; booked == paid. */

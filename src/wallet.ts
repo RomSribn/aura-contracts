@@ -32,7 +32,11 @@ export type WalletResponse = z.infer<typeof WalletResponse>;
  */
 export const TopUpRequest = z.object({
   /** $10k sanity cap on a single stub credit; real limits arrive with the PSP. */
-  amountMinor: z.number().int().positive().max(1_000_000),
+  amountMinor: z
+    .number()
+    .int('amountMinor must be an integer amount of cents')
+    .positive('amountMinor must be positive')
+    .max(1_000_000, 'amountMinor must not exceed 1000000 (USD 10k)'),
   idempotencyKey: z.string().uuid(),
 });
 export type TopUpRequest = z.infer<typeof TopUpRequest>;
