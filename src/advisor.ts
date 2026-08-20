@@ -11,7 +11,17 @@ import { z } from 'zod';
  * rather than as an error. Align the two in a deliberate pass, not as a side
  * effect of adding a shape.
  */
-export const AdvisorId = z.string().min(1);
+/**
+ * Формат идентификатора советника. Строгий намеренно: это значение приходит из
+ * приложения в путь запроса, и сервер обязан отвергать всё, что не похоже на
+ * ключ каталога, до похода в базу. Перенесено из BFF при объединении контрактов
+ * (AURAT-0034): там проверка была именно такой, а здесь стояло `min(1)`, и
+ * подключить пакет «как есть» значило бы ослабить валидацию на сервере.
+ * Проверено на всех боевых идентификаторах — ужесточение никого не ломает.
+ */
+export const AdvisorId = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,64}$/, 'advisorId must be 1-64 chars of [A-Za-z0-9_-]');
 export type AdvisorId = z.infer<typeof AdvisorId>;
 
 /**

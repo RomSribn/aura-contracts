@@ -33,6 +33,17 @@ export const Message = z.object({
 });
 export type Message = z.infer<typeof Message>;
 
+/**
+ * Ответ `POST /v1/advisors/:advisorId/conversation` — получить или создать
+ * тред с советником. `id` — идентификатор BFF; идентификаторы Chatwoot границу
+ * не пересекают.
+ */
+export const EnsureConversationResponse = z.object({
+  id: z.string(),
+  advisorId: z.string(),
+});
+export type EnsureConversationResponse = z.infer<typeof EnsureConversationResponse>;
+
 /** Body of `POST /v1/advisors/:advisorId/messages`. */
 export const SendMessageRequest = z.object({
   content: z.string().trim().min(1).max(4000),
