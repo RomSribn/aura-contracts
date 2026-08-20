@@ -46,7 +46,12 @@ export const SessionFinishReason = z.enum(['EXHAUSTED', 'ENDED_EARLY']);
 export type SessionFinishReason = z.infer<typeof SessionFinishReason>;
 
 export const Session = z.object({
-  id: SessionId,
+  // Намеренно `z.string()`, а не `SessionId`: это поле ОТВЕТА, значение
+  // порождает сервер. Строгий формат существует для проверки ВХОДА — параметра
+  // пути; навесив его сюда, мы стали бы отвергать собственные валидные данные
+  // при первой же смене генератора идентификаторов (`cuid()` → `uuid()` даёт
+  // дефисы). Проверять свой выход строже, чем чужой вход, — не защита.
+  id: z.string(),
   advisorId: AdvisorId,
   status: SessionStatus,
   /** Total booked minutes including extensions; booked == paid. */
