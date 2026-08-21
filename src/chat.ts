@@ -105,11 +105,125 @@ export const EnsureConversationResponse = z.object({
 });
 export type EnsureConversationResponse = z.infer<typeof EnsureConversationResponse>;
 
-/** Body of `POST /v1/advisors/:advisorId/messages`. */
+/**
+ * Client-generated id for one composed message, so a re-send is recognised as
+ * the same message rather than a second one (`AURAT-0032`).
+ *
+ * It exists because the app is *required* to offer a retry (`AURAF-0011-009`)
+ * and, without a key, retrying is how a file gets delivered twice: an upload
+ * can reach the agent desk and be committed there while the reply never reaches
+ * the phone, and the BFF's reconciliation poll then recovers that same message
+ * on its own within a minute. The key is what lets the recovered message and
+ * the retried one be recognised as one thing.
+ *
+ * Generate it when the message is composed, not when it is sent — a new key per
+ * attempt would defeat the whole point.
+ */
+export const IdempotencyKey = z.string().min(8).max(64);
+export type IdempotencyKey = z.infer<typeof IdempotencyKey>;
+
+/**
+ * Body of `POST /v1/advisors/:advisorId/messages`.
+ *
+ * Also the JSON half of the multipart form when a file is attached: the same
+ * field names, sent as form fields beside `attachments[]`.
+ *
+ * `content` may now be empty, because an attachment can be sent with no
+ * caption. Empty content AND no file is still refused — by the service, which
+ * can see both halves, rather than by this schema, which cannot.
+ *
+ * `idempotencyKey` is OPTIONAL, and deliberately so. The server validates every
+ * send against this schema, and the shipped app does not send the field yet;
+ * making it required would reject every message from every phone already in
+ * people's hands. A send without it simply gets no retry protection — which is
+ * exactly the situation before this version.
+ */
 export const SendMessageRequest = z.object({
-  content: z.string().trim().min(1).max(4000),
+  content: z.string().trim().max(4000).default(''),
+  idempotencyKey: IdempotencyKey.optional(),
 });
 export type SendMessageRequest = z.infer<typeof SendMessageRequest>;
+
+/**
+ * Why a send was refused, when it was refused for a reason the app should act
+ * on differently (`AURAT-0032`). Returned in the `code` of the standard
+ * `ApiError` body.
+ *
+ * The distinction that matters is retryable vs not. Until now every failure of
+ * the send path collapsed into one 502 "agent desk unavailable, try again",
+ * which is a lie for a file that will never be accepted — and offering a retry
+ * that cannot succeed is a loop, not honesty. A code here means: do not retry,
+ * tell the user what to change.
+ *
+ * The absence of a code (a plain 502) keeps its old meaning: try again.
+ */
+export const SendRefusalCode = z.enum([
+  /** Over `AttachmentLimits.maxBytes`. HTTP 413. */
+  'attachment_too_large',
+  /** The bytes are not one of `AttachmentLimits.acceptedTypes`. HTTP 415. */
+  'attachment_type_not_accepted',
+  /** More files than `AttachmentLimits.maxPerMessage`. HTTP 413. */
+  'too_many_attachments',
+  /** Neither text nor a file — there is nothing to send. HTTP 400. */
+  'message_empty',
+  /** The agent desk refused it outright; retrying sends it again for nothing. HTTP 422. */
+  'refused_by_agent_desk',
+]);
+export type SendRefusalCode = z.infer<typeof SendRefusalCode>;
+
+/**
+ * What the app may attach, and how much of it (`AURAT-0032`).
+ *
+ * These are OUR limits, and there is no external floor to lean on: Chatwoot
+ * validates neither size nor type for an API-channel inbox — its 40 MB and its
+ * type allowlist apply only to the website widget. If we do not bound this,
+ * nothing does.
+ *
+ * Published in the contract rather than kept server-side so the app can refuse
+ * an over-sized file before spending the user's mobile data on it, and show the
+ * reason. The server re-checks everything regardless, by CONTENT and never by
+ * the declared type.
+ */
+export const AttachmentLimits = {
+  maxBytes: 25 * 1024 * 1024,
+  /** One per message for now; raising this is additive, lowering it is not. */
+  maxPerMessage: 1,
+  /**
+   * Accepted MIME types, matched against what the bytes actually are.
+   *
+   * Note what is absent: text/plain and text/csv. Neither has a signature to
+   * sniff, so accepting them would mean trusting the client's declared type in
+   * the one place this feature exists not to. A deliberate loss, not an
+   * oversight.
+   */
+  acceptedTypes: [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/heic',
+    'audio/mpeg',
+    'audio/mp4',
+    'audio/aac',
+    'audio/ogg',
+    'audio/opus',
+    'audio/wav',
+    'audio/amr',
+    'audio/webm',
+    'video/mp4',
+    'video/quicktime',
+    'video/webm',
+    'video/3gpp',
+    'application/pdf',
+    'application/zip',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  ],
+} as const;
 
 /**
  * Query of `GET /v1/advisors/:advisorId/messages`. Cursors are message ids
