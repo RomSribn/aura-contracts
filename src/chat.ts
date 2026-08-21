@@ -91,6 +91,32 @@ export const Message = z.object({
    * earlier version keeps parsing today's payloads.
    */
   attachments: z.array(MessageAttachment).default([]),
+  /**
+   * The key this message was sent with, when we sent it (`AURAT-0037`). Null
+   * for everything the agent desk originated and everything sent before keys
+   * existed.
+   *
+   * Published so the app can recognise its OWN message in what the
+   * reconciliation poll brings back. Without it a send that reached the desk
+   * while its reply did not leaves the app showing "not delivered" next to a
+   * message that plainly was delivered — true only until the user presses
+   * retry, which is the wrong sort of untruth for a feature that exists
+   * because files were being lost silently.
+   *
+   * Matching on direction, file name and a time window instead would be
+   * guessing, and it would fold two deliberately identical photos into one.
+   *
+   * Deliberately a PLAIN STRING here, not `IdempotencyKey` — the same
+   * asymmetry v0.8.2 settled for `SessionId`, and worth restating because the
+   * strict version is the obvious thing to write. On the way in the format is
+   * checked; on the way out it is not. The stored value is whatever the desk
+   * echoed in its `source_id`, a field the provider also writes to itself, so
+   * a value shorter than the minimum could exist — and a client running
+   * `safeParse` would then drop the ENTIRE message rather than one field,
+   * making a message disappear from the thread to enforce a rule about a value
+   * nothing reads.
+   */
+  idempotencyKey: z.string().nullable().default(null),
 });
 export type Message = z.infer<typeof Message>;
 
