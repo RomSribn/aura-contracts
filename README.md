@@ -20,6 +20,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008 |
 | `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010 |
 | `envelope` | `ApiError` | AURAI-0002 |
+| `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
 
 Every shape mirrors a route the BFF actually serves. **Money is always an
 integer of minor units** on the field that owns it (`balanceMinor`,
@@ -27,6 +28,14 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.12.0` adds the **daily tarot card** (`AURAD-0012`, BFF half `AURAT-0049`):
+the deck of 78 cards and the day's draw move to the server, replacing the seven
+cards the app had compiled in. The client sends its IANA zone and nothing else
+about time — the server reads its own clock in that zone, records the draw
+against `(user, localDate)`, and avoids cards that fell for the same user in the
+last two weeks. `imageUrl` arrives composed, as `Advisor.avatarUrl` does.
+Additive only.
 
 `v0.7.0` adds the **Google Play top-up rail** (`AURAD-0010`, app half
 `AURAT-0026`, BFF half `AURAT-0027`): `POST /v1/wallet/top-ups/google` takes a
