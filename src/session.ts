@@ -268,3 +268,30 @@ export const SessionPricing = z.object({
   ),
 });
 export type SessionPricing = z.infer<typeof SessionPricing>;
+
+/**
+ * An invitation to continue the reading in a paid private session, laid out by
+ * the chatter in the thread (`AURAF-0013`). Carried on the message that offered
+ * it — see `Message.sessionInvite`.
+ *
+ * **It carries nothing, and that is the whole shape of it in v1.** Its presence
+ * on a message is the entire payload: this message is an invitation, draw the
+ * card. No duration, no price — a decision, not an omission (`AURAF-0013`,
+ * owner, 01.09):
+ *
+ * - **No duration**, because the app has no default one to agree with. The
+ *   booking sheet preselects the *shortest block the server returned for that
+ *   advisor*, which differs between advisors, so a number on the card would
+ *   either be invented and disagree with the sheet a tap later, or cost a
+ *   pricing request per invitation in the feed.
+ * - **No price**, and this one is permanent regardless of what is decided about
+ *   duration: a price typed by a chatter is a price that can be mistyped. The
+ *   server resolves money from the advisor's tariff, never from a message.
+ *
+ * An **object rather than a boolean**, deliberately, for the one thing an empty
+ * object buys: `minutes` (or anything else) can be added to it additively,
+ * while `boolean → object` would break every client already parsing the field.
+ * The card's numbers are named by the booking sheet the button opens.
+ */
+export const SessionInvite = z.object({});
+export type SessionInvite = z.infer<typeof SessionInvite>;

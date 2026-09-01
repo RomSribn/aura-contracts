@@ -17,7 +17,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `advisor` | `AdvisorId`, `Advisor`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013 |
 | `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
-| `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008 |
+| `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008, AURAF-0013 |
 | `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010 |
 | `envelope` | `ApiError` | AURAI-0002 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
@@ -28,6 +28,14 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.14.0` adds the **paid session invitation** (`AURAF-0013`, BFF half
+`AURAT-0054`, app half `AURAT-0055`): `Message.sessionInvite`, an optional
+**empty object** whose presence says this message invited the reader into a paid
+private session. It carries no duration and no price — the booking sheet the
+button opens names both, and a price typed by a chatter is a price that can be
+mistyped. An object rather than a boolean so `minutes` can be added additively
+if the duration decision is ever revisited. Additive only.
 
 `v0.12.0` adds the **daily tarot card** (`AURAD-0012`, BFF half `AURAT-0049`):
 the deck of 78 cards and the day's draw move to the server, replacing the seven

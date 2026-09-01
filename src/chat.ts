@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AdvisorId } from './advisor';
-import { Session } from './session';
+import { Session, SessionInvite } from './session';
 import { TarotSpread } from './tarot';
 
 /**
@@ -149,6 +149,29 @@ export const Message = z.object({
    * rather than an empty bubble.
    */
   spread: TarotSpread.optional(),
+  /**
+   * Present only on a message that invited the reader into a paid private
+   * session (`AURAF-0013`) — absent, not null, on every ordinary message, for
+   * the same reason as `spread` above: a client built against an earlier
+   * version keeps parsing today's payloads exactly as before.
+   *
+   * Its presence is the whole of it: this message is an invitation, draw the
+   * card instead of a bubble. The chatter writes it as a token in the message
+   * text (`::SESSION::`), the BFF reads it on ingestion and cuts it out of
+   * `content`, so **the app never parses copy** and a token the server did not
+   * understand never reaches a device as a literal bubble.
+   *
+   * `content` is not empty on such a message: what is left after the token is
+   * cut stands, and a message that was nothing but the token falls back to the
+   * card's own headline, so a client that predates this field shows a sentence
+   * rather than an empty bubble.
+   *
+   * The card is static. It is not replaced once a session is booked, it cannot
+   * be declined, and it holds no state on either side — the button opens the
+   * booking flow that already exists, exactly as the one in the chat header
+   * does (`AURAF-0013`, owner, 01.09).
+   */
+  sessionInvite: SessionInvite.optional(),
 });
 export type Message = z.infer<typeof Message>;
 
