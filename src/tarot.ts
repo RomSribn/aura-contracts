@@ -98,3 +98,86 @@ export const MarkDailyCardDrawnRequest = z.object({
   tz: z.string().optional(),
 });
 export type MarkDailyCardDrawnRequest = z.infer<typeof MarkDailyCardDrawnRequest>;
+
+// --- The spread a chatter lays out in the thread (AURAF-0012) ---
+
+/**
+ * How many backs the fan shows. Seven — a **fan**, not the deck: a tap names a
+ * position among these, never a card out of 78, so this is what bounds
+ * `position` and what the app lays out.
+ *
+ * Published rather than kept server-side because both halves have to agree on
+ * it: the app draws exactly this many backs, and the server refuses a position
+ * outside them.
+ */
+export const TAROT_SPREAD_POSITIONS = 7;
+
+/**
+ * A position in the fan, **on the way in** — the body of the pick call.
+ *
+ * Strict here and loose in every response below, which is the asymmetry v0.8.2
+ * settled: a value arriving from a device is checked before it reaches the
+ * database; a value we recorded ourselves is not re-checked on the way out. If
+ * the fan ever grows, an old stored `6` must not become a message a client
+ * refuses to parse.
+ */
+export const TarotSpreadPosition = z
+  .number()
+  .int()
+  .min(0)
+  .max(TAROT_SPREAD_POSITIONS - 1, `position must be 0-${TAROT_SPREAD_POSITIONS - 1}`);
+export type TarotSpreadPosition = z.infer<typeof TarotSpreadPosition>;
+
+/** What was chosen, and when. `at` is ISO-8601, the server's record of the tap. */
+export const TarotSpreadPick = z.object({
+  position: z.number().int(),
+  at: z.string(),
+});
+export type TarotSpreadPick = z.infer<typeof TarotSpreadPick>;
+
+/**
+ * The state of one spread, carried on the message that laid it out.
+ *
+ * A union of exactly two members rather than one object with nullable fields,
+ * and that is the load-bearing part: **the card of an unpicked spread does not
+ * exist in this type**, so no client can render it and no server can publish it
+ * by accident. That is deliberate (`AURAF-0012-001`) — the card is decided by
+ * the chatter in advance, and sending it with the fan would put the outcome in
+ * the device's memory before the person touched the screen; anyone watching the
+ * traffic would see the answer before the question. The card arrives as the
+ * **answer to the pick**, from `POST /v1/tarot/spread/{messageId}/pick`.
+ *
+ * `picked` is the discriminant: `spread.picked === null` narrows to the open
+ * fan, and the truthy branch has the card.
+ */
+export const TarotSpread = z.union([
+  z.object({ picked: z.null() }),
+  z.object({ picked: TarotSpreadPick, card: TarotCard }),
+]);
+export type TarotSpread = z.infer<typeof TarotSpread>;
+
+/**
+ * Body of `POST /v1/tarot/spread/{messageId}/pick` — the position the finger
+ * landed on.
+ */
+export const PickSpreadCardRequest = z.object({
+  position: TarotSpreadPosition,
+});
+export type PickSpreadCardRequest = z.infer<typeof PickSpreadCardRequest>;
+
+/**
+ * Response of the pick — and the only place the card of a spread is ever
+ * served.
+ *
+ * Idempotent, and 200 on the repeat: a second tap (a double tap, a retry on a
+ * bad connection) is answered with the pick that was already recorded, the
+ * *first* position and the *first* timestamp, not an error. A spread that is
+ * not this caller's, or not a spread at all, is a 404 — never a 403, which
+ * would confirm that the id names something.
+ */
+export const PickSpreadCardResponse = z.object({
+  card: TarotCard,
+  position: z.number().int(),
+  pickedAt: z.string(),
+});
+export type PickSpreadCardResponse = z.infer<typeof PickSpreadCardResponse>;

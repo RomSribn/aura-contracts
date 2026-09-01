@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AdvisorId } from './advisor';
 import { Session } from './session';
+import { TarotSpread } from './tarot';
 
 /**
  * Chat contract. Since AURAT-0034 this package **is** the single definition —
@@ -58,6 +59,18 @@ export const AttachmentId = z
   .string()
   .regex(/^[A-Za-z0-9_-]{1,64}$/, 'attachmentId must be 1-64 chars of [A-Za-z0-9_-]');
 export type AttachmentId = z.infer<typeof AttachmentId>;
+
+/**
+ * Path-parameter guard for the routes that name one stored message —
+ * `POST /v1/tarot/spread/{messageId}/pick` today.
+ *
+ * The same in/out asymmetry as `AttachmentId`: strict on the way in, and
+ * deliberately absent from `Message.id`, which stays a plain string.
+ */
+export const MessageId = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,64}$/, 'messageId must be 1-64 chars of [A-Za-z0-9_-]');
+export type MessageId = z.infer<typeof MessageId>;
 
 export const MessageAttachment = z.object({
   id: z.string(),
@@ -117,6 +130,25 @@ export const Message = z.object({
    * nothing reads.
    */
   idempotencyKey: z.string().nullable().default(null),
+  /**
+   * Present only on a message that laid out a tarot spread (`AURAF-0012`) —
+   * absent, not null, on every ordinary message, so a client built against an
+   * earlier version keeps parsing today's payloads exactly as before.
+   *
+   * Its presence is what tells the app to render the fan instead of a bubble.
+   * The chatter writes the spread as a token in the message text
+   * (`::CUPS_02::`); the BFF parses it on ingestion, cuts it out of `content`
+   * and publishes this field, so **the app never parses copy** — the debt
+   * `map-message.ts` already carries for session dividers is not repeated here,
+   * and a token the server did not understand never reaches a device as a
+   * literal bubble.
+   *
+   * `content` is not empty on such a message: what is left after the token is
+   * cut stands, and a message that was nothing but the token falls back to the
+   * fan's own caption, so a client that predates this field shows a sentence
+   * rather than an empty bubble.
+   */
+  spread: TarotSpread.optional(),
 });
 export type Message = z.infer<typeof Message>;
 
