@@ -14,7 +14,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | Module | Shapes | Grounding |
 |---|---|---|
 | `money` | `Currency` (USD) | AURAD-0002 |
-| `advisor` | `AdvisorId`, `Advisor`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013 |
+| `advisor` | `AdvisorId`, `Advisor`, `AdvisorReview`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013, AURAF-0014 |
 | `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008, AURAF-0013 |
@@ -28,6 +28,20 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.15.0` adds **advisor reviews** (`AURAF-0014`, BFF half `AURAT-0058`, app
+half `AURAT-0059`): `AdvisorReview` and `Advisor.reviews`, so the quotes on the
+profile stop being two strings compiled into the app and shown for every
+persona. `reviews` is optional on the wire and always an array after parsing —
+a server that predates this version still satisfies the schema, and no reviews
+means the app draws no reviews section.
+
+The same release changes what `ratingTenths` and `reviewsCount` **mean**,
+without changing their shape: they are now aggregates over `reviews` rather
+than owner-set display figures. The reason is arithmetic, not tidiness — five
+reviews of whole stars can only average to 4.0, 4.2, 4.4, 4.6, 4.8 or 5.0, so a
+hand-set "4.9 (5)" is impossible and checkable in the head by anyone looking at
+the screen. Additive.
 
 `v0.14.0` adds the **paid session invitation** (`AURAF-0013`, BFF half
 `AURAT-0054`, app half `AURAT-0055`): `Message.sessionInvite`, an optional

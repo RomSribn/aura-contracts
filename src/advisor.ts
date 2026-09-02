@@ -35,6 +35,33 @@ export const AdvisorCategory = z.enum(['LOVE', 'TAROT', 'PSYCHIC']);
 export type AdvisorCategory = z.infer<typeof AdvisorCategory>;
 
 /**
+ * One review of an advisor as the catalog serves it (`AURAT-0058`,
+ * `AURAF-0014`). Written on the profile as monogram · name · stars · quote.
+ *
+ * No reviewer avatar and no tint: the disc is a monogram on a colour the app
+ * derives from the name, which is a design token and has no business meaning
+ * (`AURAT-0013` D6). No date either — the card does not show one, and a stored
+ * date on a seeded review would age into a lie; `createdAt` orders the list and
+ * nothing else.
+ *
+ * Where the rows come from is deliberately NOT on the wire. `source`
+ * (`SEED`/`USER`), `published` and the session a review was left for are the
+ * server's business: the client renders whatever it is handed, so a moderation
+ * flag reaching the phone could only ever be a way to render something that
+ * should not have been sent.
+ */
+export const AdvisorReview = z.object({
+  id: z.string().min(1),
+  /** First name as the reviewer gave it — never an account handle. */
+  authorName: z.string().min(1),
+  quote: z.string().min(1),
+  /** Integer tenths, as `Advisor.ratingTenths`: `50` is five stars. */
+  ratingTenths: z.number().int().min(0).max(50),
+  createdAt: z.string().datetime(),
+});
+export type AdvisorReview = z.infer<typeof AdvisorReview>;
+
+/**
  * An advisor persona as the catalog serves it (`AURAT-0013`,
  * `GET /v1/advisors`). Personas, never chatters: whoever actually answers is
  * never exposed (`AURAD-0001`).
@@ -66,11 +93,28 @@ export const Advisor = z.object({
   priceMinorPerMinute: z.number().int().positive(),
   /**
    * Integer tenths: `49` means 4.9. Same no-floats discipline as the money
-   * fields — divide by 10 for display. An owner-set display figure, not an
-   * aggregate over a reviews table (there is none yet).
+   * fields — divide by 10 for display.
+   *
+   * Since `v0.15.0` this is an **aggregate over `reviews`**, not an owner-set
+   * figure: `round(sum(ratingTenths) / reviewsCount)`. The change is invisible
+   * on the wire and load-bearing on the screen — five reviews of whole stars
+   * can only average to 4.0, 4.2, 4.4, 4.6, 4.8 or 5.0, so a hand-set "4.9 (5)"
+   * is arithmetically impossible and checkable by anyone who cares to
+   * (`AURAF-0014`).
    */
   ratingTenths: z.number().int().min(0).max(50),
+  /** Number of published reviews — the length of `reviews`, not a bigger claim. */
   reviewsCount: z.number().int().nonnegative(),
+  /**
+   * The advisor's own reviews, in display order.
+   *
+   * Optional on the wire and always an array after parsing: a server that
+   * predates `v0.15.0` (or one rolled back to it) still parses, and the app's
+   * catalog load — which uses `parse`, not `safeParse`, so drift surfaces as a
+   * retryable failure — does not turn into an empty screen over a field that
+   * has a sane absence. No reviews means the app draws no reviews section.
+   */
+  reviews: z.array(AdvisorReview).default([]),
 });
 export type Advisor = z.infer<typeof Advisor>;
 
