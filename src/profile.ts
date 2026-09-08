@@ -135,6 +135,20 @@ export const ProfileResponse = z.object({
    */
   phoneE164: z.string().nullable().default(null),
   marketingOptIn: z.boolean().default(false),
+  /**
+   * The photograph, when there is one — an opaque handle, never an address
+   * (`AURAD-0013`). The bytes come from `GET /v1/avatars/:avatarId` under the
+   * caller's own token, and no storage URL is handed out at any point.
+   *
+   * It changes on every replacement, and that is what it is for: a cache keyed
+   * by this id shows the new face the moment it lands, while a stable address
+   * would go on serving the old one. Android does not leave that to headers —
+   * Fresco caches by URI and does not read them (`AURAD-0012`).
+   *
+   * `null` for almost everybody, and permanently so: the brand orb is the
+   * design's default portrait, not a placeholder waiting for a photograph.
+   */
+  avatarId: z.string().nullable().default(null),
 });
 export type ProfileResponse = z.infer<typeof ProfileResponse>;
 
@@ -209,3 +223,80 @@ export const ProfilePatchRequest = z
   })
   .strict();
 export type ProfilePatchRequest = z.infer<typeof ProfilePatchRequest>;
+
+/**
+ * Path-parameter guard for `GET /v1/avatars/:avatarId` (`AURAT-0064`).
+ *
+ * The same in/out asymmetry as `AttachmentId`: strict on the way in, because
+ * that value arrives from a device, and a plain nullable string inside
+ * `ProfileResponse`, because that one we minted ourselves and do not re-check
+ * on the way out.
+ */
+export const AvatarId = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,64}$/, 'avatarId must be 1-64 chars of [A-Za-z0-9_-]');
+export type AvatarId = z.infer<typeof AvatarId>;
+
+/**
+ * Why an avatar upload was refused (`AURAT-0064`). Returned in the `code` of
+ * the standard `ApiError` body.
+ *
+ * Same shape and same purpose as `SendRefusalCode`: a code here means "do not
+ * retry, tell the person what to change", and its absence keeps the older
+ * meaning of "this may work if you try it again". A picture that has to be
+ * swapped for a different one is not a network problem, and offering a retry
+ * for it is a loop.
+ */
+export const AvatarRefusalCode = z.enum([
+  /** Over `AvatarLimits.maxBytes`. HTTP 413. */
+  'avatar_too_large',
+  /** The bytes are not one of `AvatarLimits.acceptedTypes`. HTTP 415. */
+  'avatar_type_not_accepted',
+  /** Either side exceeds `AvatarLimits.maxPixelsPerSide`. HTTP 413. */
+  'avatar_too_many_pixels',
+  /** The upload carried no file, or an empty one. HTTP 400. */
+  'avatar_empty',
+]);
+export type AvatarRefusalCode = z.infer<typeof AvatarRefusalCode>;
+
+/**
+ * What a profile photograph may be (`AURAT-0064`, `AURAD-0013`).
+ *
+ * Published in the contract for the same reason as `AttachmentLimits`: so the
+ * app can refuse a file before spending the person's mobile data on it. The
+ * server re-checks all of it regardless, by CONTENT and never by the declared
+ * type.
+ *
+ * Unlike the attachment limits, these are **not** ours alone to choose. The
+ * photograph is also sent on to the agent desk, whose own avatar rules
+ * (Chatwoot `Avatarable`) accept 15 MB and only jpeg/png/gif/webp. Anything we
+ * take that it will not must therefore be refused HERE — a file accepted by us
+ * and rejected there fails on a background job, which is to say silently.
+ */
+export const AvatarLimits = {
+  /**
+   * Well under the agent desk's 15 MB, and far above what a resized photograph
+   * weighs (200-400 KB). The ceiling is not for the picker — it is for a build
+   * that does not resize, and for anything hand-crafted.
+   */
+  maxBytes: 8 * 1024 * 1024,
+  /**
+   * We never decode these bytes; the agent desk does, to build its 250px
+   * variant. A 20000x20000 PNG under 8 MB is an ordinary file, and this is the
+   * only thing standing between one and a decoder. Twice what the app is asked
+   * to produce.
+   */
+  maxPixelsPerSide: 4096,
+  /**
+   * Note what is absent, in both directions.
+   *
+   * `image/heic` cannot be here: the agent desk does not accept it at all, so
+   * an unconverted iPhone photograph has to be transcoded on the device — which
+   * the picker already does at the moment of choosing, where it is free.
+   *
+   * `image/gif` the desk would accept, and it is still absent: an animated
+   * portrait is a decision nobody has made, and it forks the app into "first
+   * frame or animation". Additive to allow later, subtractive to withdraw.
+   */
+  acceptedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+} as const;
