@@ -45,18 +45,41 @@ export type AdvisorCategory = z.infer<typeof AdvisorCategory>;
  * nothing else.
  *
  * Where the rows come from is deliberately NOT on the wire. `source`
- * (`SEED`/`USER`), `published` and the session a review was left for are the
- * server's business: the client renders whatever it is handed, so a moderation
- * flag reaching the phone could only ever be a way to render something that
- * should not have been sent.
+ * (`SEED`/`USER`), `published`, the moderation state of the text and the
+ * session a review was left for are the server's business: the client renders
+ * whatever it is handed, so a moderation flag reaching the phone could only
+ * ever be a way to render something that should not have been sent.
  */
 export const AdvisorReview = z.object({
   id: z.string().min(1),
-  /** First name as the reviewer gave it — never an account handle. */
+  /**
+   * First name as the reviewer gave it — never an account handle, and
+   * `'Anonymous'` when `anonymous` is set: the person's own name does not
+   * travel for a review they asked to be unsigned.
+   */
   authorName: z.string().min(1),
-  quote: z.string().min(1),
+  /**
+   * The written review, or **the empty string** — which since `v0.18.0` is an
+   * ordinary answer rather than a malformed row (`AURAF-0016`, `AURAD-0014`).
+   *
+   * Two different things arrive empty and the client cannot tell them apart,
+   * which is the point: a rating left without any text, and a text still with
+   * (or rejected by) moderation. Either way the card renders as monogram ·
+   * name · stars with no quote line, the rating counts, and a text that later
+   * passes moderation appears in a card that was already standing — so no
+   * number on the screen moves when it does.
+   */
+  quote: z.string(),
   /** Integer tenths, as `Advisor.ratingTenths`: `50` is five stars. */
   ratingTenths: z.number().int().min(0).max(50),
+  /**
+   * Rendered as the byline "Anonymous · Verified client". The second half of
+   * that badge is a claim about the person, and it holds because the server —
+   * not the client — is what decides who may review at all (`AURAF-0016`).
+   *
+   * Defaulted, so a server predating `v0.18.0` still parses.
+   */
+  anonymous: z.boolean().default(false),
   createdAt: z.string().datetime(),
 });
 export type AdvisorReview = z.infer<typeof AdvisorReview>;
@@ -103,7 +126,13 @@ export const Advisor = z.object({
    * (`AURAF-0014`).
    */
   ratingTenths: z.number().int().min(0).max(50),
-  /** Number of published reviews — the length of `reviews`, not a bigger claim. */
+  /**
+   * Number of published reviews — the length of `reviews`, not a bigger claim.
+   *
+   * The identity survived the arrival of ratings without text (`v0.18.0`)
+   * precisely because such a rating is still a row in `reviews`: counting
+   * ratings and listing them stayed the same act (`AURAD-0014`).
+   */
   reviewsCount: z.number().int().nonnegative(),
   /**
    * The advisor's own reviews, in display order.
