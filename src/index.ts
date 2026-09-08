@@ -5,4 +5,5 @@ export * from './device';
 export * from './session';
 export * from './wallet';
 export * from './envelope';
+export * from './profile';
 export * from './tarot';

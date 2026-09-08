@@ -20,6 +20,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008, AURAF-0013 |
 | `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010 |
 | `envelope` | `ApiError` | AURAI-0002 |
+| `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
 
 Every shape mirrors a route the BFF actually serves. **Money is always an
@@ -28,6 +29,29 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.16.0` adds the **user profile** (`AURAF-0015`, BFF half `AURAT-0063`, app
+half `AURAT-0062`): `GET /v1/me` and `PATCH /v1/me` carrying `displayName`,
+`email`, `birthDate` and `marketingOptIn` beside the read-only `phoneE164`.
+Until now the app had nowhere to put a name — it showed a compiled-in `'Vasya'`
+— and the birth-date write from the horoscope sheet answered `404`.
+
+Three shapes here are worth reading before they are "tidied up":
+
+- **The read is looser than the write.** `ProfileResponse` holds plain nullable
+  strings; only `ProfilePatchRequest` applies `Email` and `BirthDate`. A value
+  stored before a rule tightened must not be able to fail the read and take the
+  rest of the profile with it.
+- **`""` erases the email, exactly like `null`.** That is what a cleared text
+  field sends, and refusing it would make "delete my email" a `400`.
+- **`phoneE164` is declared in the patch only to be refused by name.**
+  `.strict()` alone would call it an unrecognized key, when the real answer is
+  that the number comes from the verified sign-in token.
+
+`birthDate` is a calendar day (`YYYY-MM-DD`, a day that exists, not before
+1900) and deliberately carries **no** future bound: which "today" applies
+depends on whether the device's clock or the server's is asked, and the two
+differ by up to a day. Each side adds its own. Additive only.
 
 `v0.15.0` adds **advisor reviews** (`AURAF-0014`, BFF half `AURAT-0058`, app
 half `AURAT-0059`): `AdvisorReview` and `Advisor.reviews`, so the quotes on the
