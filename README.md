@@ -22,6 +22,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `envelope` | `ApiError` | AURAI-0002 |
 | `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
+| `account` | `AccountDeletionRefusalCode`, `ACCOUNT_DELETED` | AURAT-0042 |
 
 Every shape mirrors a route the BFF actually serves. **Money is always an
 integer of minor units** on the field that owns it (`balanceMinor`,
@@ -29,6 +30,15 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.19.0` adds **account deletion** (`AURAT-0042`, BFF half in `aura-bff-manor`):
+`DELETE /v1/me` answers `204` — and `204` again on a repeat — or `409` with
+`account_has_live_sessions` while a paid session is booked or running. There is
+no request or response body, so the release is two names: the refusal code, and
+`ACCOUNT_DELETED`, the `ApiError.code` every other route answers `401` with (and
+the WebSocket close reason) while a device still holds a token for the deleted
+identity. The distinction from a plain `401` is the point: an expired token is
+refreshed and retried, a deleted account is signed out. Additive only.
 
 `v0.16.0` adds the **user profile** (`AURAF-0015`, BFF half `AURAT-0063`, app
 half `AURAT-0062`): `GET /v1/me` and `PATCH /v1/me` carrying `displayName`,

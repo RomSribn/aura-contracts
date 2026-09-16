@@ -8,3 +8,4 @@ export * from './wallet';
 export * from './envelope';
 export * from './profile';
 export * from './tarot';
+export * from './account';
