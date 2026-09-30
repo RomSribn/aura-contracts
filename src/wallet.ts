@@ -88,3 +88,39 @@ export const GooglePlayTopUpResponse = z.object({
   replayed: z.boolean(),
 });
 export type GooglePlayTopUpResponse = z.infer<typeof GooglePlayTopUpResponse>;
+
+/**
+ * Body of `POST /v1/wallet/top-ups/apple` — the StoreKit rail (AURAD-0017).
+ *
+ * The same claim as the Play rail and for the same reasons: no amount (the BFF
+ * reads the credit from its own tier table keyed by `productId`), no bundle id
+ * (the BFF asks Apple about its own app).
+ *
+ * Deliberately no signed transaction either. StoreKit 2 hands the app a JWS,
+ * and posting it would be tempting, but a signature only proves the payload was
+ * signed — not that the purchase still stands, was not refunded a minute ago,
+ * or belongs to this account. The BFF asks the App Store Server API by id
+ * instead, exactly as the Play rail asks Google by token.
+ */
+export const AppleTopUpRequest = z.object({
+  /**
+   * StoreKit's transaction id. Also the idempotency key: one transaction, one
+   * entry.
+   */
+  transactionId: z.string().min(1),
+  /**
+   * Product id, e.g. `aura.topup.usd25` — shared with Play, so one tier table
+   * serves both rails. The BFF checks it against what Apple reports, so naming
+   * the wrong one fails rather than paying out.
+   */
+  productId: z.string().min(1),
+});
+export type AppleTopUpRequest = z.infer<typeof AppleTopUpRequest>;
+
+/**
+ * Same shape as `GooglePlayTopUpResponse`, kept under its own name so either
+ * rail can grow a field without the other inheriting it. `replayed` is true
+ * when this `transactionId` had already been redeemed.
+ */
+export const AppleTopUpResponse = GooglePlayTopUpResponse;
+export type AppleTopUpResponse = z.infer<typeof AppleTopUpResponse>;

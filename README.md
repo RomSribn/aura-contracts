@@ -18,7 +18,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008, AURAF-0013 |
-| `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010 |
+| `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017 |
 | `envelope` | `ApiError` | AURAI-0002 |
 | `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
@@ -30,6 +30,13 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.20.0` adds the **StoreKit top-up rail** (`AURAD-0017`; app half `AURAT-0081`,
+BFF half `AURAT-0082`): `POST /v1/wallet/top-ups/apple` with
+`{transactionId, productId}` — the Play claim with Apple's id in place of
+Google's token. No JWS on the wire: the BFF asks the App Store Server API by id
+rather than trusting a signature the app hands it. The response is the Play
+response under its own name. Additive only.
 
 `v0.19.0` adds **account deletion** (`AURAT-0042`, BFF half in `aura-bff-manor`):
 `DELETE /v1/me` answers `204` — and `204` again on a repeat — or `409` with
