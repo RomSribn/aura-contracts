@@ -7,6 +7,22 @@ import { Currency } from './money';
  * (`aura-bff/src/contracts/wallet.ts`): money crosses the wire as integer
  * minor units (cents), never a float and never a nested money object.
  */
+/**
+ * The new-client offer (`AURAF-0017`): the first paid session costs `pct`% less.
+ * Per-user money state, served beside the balance because the wallet is loaded
+ * on sign-in and sits behind the same billing flag as booking.
+ *
+ * `active` is the server's answer, never derived app-side: it is true until a
+ * session has used the offer, and comes back if that session is cancelled with
+ * a full refund. The figures to charge still come from `SessionPricing` — `pct`
+ * is for wording, not arithmetic.
+ */
+export const FirstSessionOffer = z.object({
+  active: z.boolean(),
+  pct: z.number().int().min(1).max(100),
+});
+export type FirstSessionOffer = z.infer<typeof FirstSessionOffer>;
+
 export const WalletResponse = z.object({
   balanceMinor: z.number().int(),
   currency: Currency,
@@ -22,6 +38,11 @@ export const WalletResponse = z.object({
    * store rail as not configured rather than inventing a value.
    */
   purchaseAccountId: z.string().min(1).max(64).optional(),
+  /**
+   * Optional because builds and BFFs before `v0.21.0` neither send nor read it;
+   * absent means no offer to show.
+   */
+  firstSessionOffer: FirstSessionOffer.optional(),
 });
 export type WalletResponse = z.infer<typeof WalletResponse>;
 

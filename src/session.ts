@@ -249,18 +249,22 @@ export type AvailabilityResponse = z.infer<typeof AvailabilityResponse>;
  * what the server will charge. An advisor with no registered price is not
  * bookable at all (404), never billed at some default.
  *
- * The breakdown is per duration because the credit is not proportional: it is a
- * flat first-session discount, so the app must not derive one block's total
- * from another's.
+ * The breakdown is per duration so the app never derives one block's total from
+ * another's: the first-session discount rounds per block (`AURAF-0017`), and the
+ * figures here are the ones the debit uses.
  */
 export const SessionPricing = z.object({
   priceMinorPerMinute: z.number().int().positive(),
   blocks: z.array(
     z.object({
       minutes: z.number().int().positive(),
-      /** `priceMinorPerMinute × minutes`, before any credit. */
+      /** `priceMinorPerMinute × minutes`, before any discount. */
       subtotalMinor: z.number().int().positive(),
-      /** Flat first-session credit; 0 once the user has had a session. */
+      /**
+       * First-session discount, `subtotalMinor − costMinor`; 0 while the offer
+       * is not active for this user. Named `credit` for the builds that shipped
+       * when it was a flat $5.
+       */
       creditMinor: z.number().int().nonnegative(),
       /** What the wallet will actually be debited — never recomputed app-side. */
       costMinor: z.number().int().nonnegative(),

@@ -18,7 +18,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008, AURAF-0013 |
-| `wallet` | `WalletResponse`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017 |
+| `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
 | `envelope` | `ApiError` | AURAI-0002 |
 | `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
@@ -30,6 +30,13 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.21.0` adds the **first-session offer** (`AURAF-0017`; app half `AURAT-0093`,
+BFF half `AURAT-0094`): `WalletResponse.firstSessionOffer` — `{active, pct}`,
+optional — tells the app before booking whether the user's first paid session
+is discounted. The discount itself travels where the flat $5 credit did,
+`SessionPricing.blocks[].creditMinor`, now documented as `subtotal − cost`.
+Additive only.
 
 `v0.20.0` adds the **StoreKit top-up rail** (`AURAD-0017`; app half `AURAT-0081`,
 BFF half `AURAT-0082`): `POST /v1/wallet/top-ups/apple` with
