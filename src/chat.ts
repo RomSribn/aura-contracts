@@ -316,17 +316,26 @@ export const HistoryQuery = z.object({
   after: z.string().optional(),
   before: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  // Catch-up for deletions missed off the socket (AURAF-0018): a message id —
+  // typically the oldest one the app holds in the thread. The response then
+  // lists, in `deletedIds`, the ids of deleted messages positioned at or after
+  // it. An id the BFF does not know yields an empty list, not an error.
+  deletedFrom: z.string().optional(),
 });
 export type HistoryQuery = z.infer<typeof HistoryQuery>;
 
 export const HistoryResponse = z.object({
   messages: z.array(Message),
+  // Ids of messages the desk deleted, positioned at or after `deletedFrom`.
+  // Empty without `deletedFrom`. Deleted messages never appear in `messages`.
+  deletedIds: z.array(z.string()).default([]),
 });
 export type HistoryResponse = z.infer<typeof HistoryResponse>;
 
 /**
  * Server → app WebSocket events (`/ws?token=<Firebase ID token>`).
- * `message.new` (AURAT-0005) and `session.updated` (AURAT-0008) ship today;
+ * `message.new` (AURAT-0005), `session.updated` (AURAT-0008) and
+ * `message.deleted` (AURAF-0018, v0.22.0) ship today;
  * `presence.update` and `typing.update` are the persona-level events of
  * AURAD-0001 — emission is AURAT-0009, the app already handles them (and
  * their absence) gracefully.
@@ -357,6 +366,14 @@ export const WsServerEvent = z.discriminatedUnion('type', [
     type: z.literal('typing.update'),
     advisorId: AdvisorId,
     typing: z.boolean(),
+  }),
+  // The desk deleted a message of either side (AURAF-0018): drop it from the
+  // thread without a trace. `messageId` is our `Message.id`. No FCM push
+  // accompanies it — a backgrounded app catches up via `deletedFrom`.
+  z.object({
+    type: z.literal('message.deleted'),
+    advisorId: AdvisorId,
+    messageId: z.string(),
   }),
 ]);
 export type WsServerEvent = z.infer<typeof WsServerEvent>;

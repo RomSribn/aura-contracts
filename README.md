@@ -15,7 +15,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 |---|---|---|
 | `money` | `Currency` (USD) | AURAD-0002 |
 | `advisor` | `AdvisorId`, `Advisor`, `AdvisorReview`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013, AURAF-0014 |
-| `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003 |
+| `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003, AURAF-0018 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008, AURAF-0013 |
 | `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
@@ -30,6 +30,14 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.22.0` adds **message deletion** (`AURAF-0018`; app half `AURAT-0097`, BFF
+half `AURAT-0098`): when the desk deletes a message of either side, the BFF
+emits the WebSocket event `message.deleted` `{advisorId, messageId}` and stops
+returning the message from history. Deletions missed off the socket are caught
+up through `HistoryQuery.deletedFrom` (a message id) → `HistoryResponse.deletedIds`
+(ids of deleted messages at or after it, `[]` by default). `Message` and
+`MessagePushData` are unchanged. Additive only.
 
 `v0.21.0` adds the **first-session offer** (`AURAF-0017`; app half `AURAT-0093`,
 BFF half `AURAT-0094`): `WalletResponse.firstSessionOffer` — `{active, pct}`,
