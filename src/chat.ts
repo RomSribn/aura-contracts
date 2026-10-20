@@ -176,7 +176,7 @@ export const Message = z.object({
 export type Message = z.infer<typeof Message>;
 
 /**
- * Ответ `POST /v1/advisors/:advisorId/conversation` — получить или создать
+ * Ответ `PUT /v1/advisors/:advisorId/conversation` — получить или создать
  * тред с советником. `id` — идентификатор BFF; идентификаторы Chatwoot границу
  * не пересекают.
  */

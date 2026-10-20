@@ -97,6 +97,14 @@ export type Session = z.infer<typeof Session>;
  * as "now" — that would turn a forgotten field into a charged, running session.
  *
  * `idempotencyKey` is client-generated: replaying it must never debit twice.
+ * A repeat with the same key answers with the **original** session (its current
+ * state) and the current balance, *before* the request is checked — a lost
+ * response never becomes a second charge, even once the slot has moved inside
+ * the lead time (`AURAT-0109`). The repeat's body is **not** compared: another
+ * slot, block or `startNow` still returns the session that was bought. Clients
+ * keep the key until a definite outcome, also across a slot change (web
+ * `AURAT-0107-005` §4); turning a mismatch into a refusal is a breaking change
+ * for them, made only together.
  */
 export const BookSessionRequest = z
   .object({
@@ -118,6 +126,11 @@ export type BookSessionRequest = z.infer<typeof BookSessionRequest>;
  * Body of `POST /v1/sessions/:sessionId/extend` — more minutes on the session
  * that is already running, which is a different act from booking one and needs
  * no slot.
+ *
+ * The same `idempotencyKey` answers with the original extension (the session's
+ * current state, the current balance) before the request is checked, also after
+ * the session has ended (`AURAT-0109`). Unlike booking, `minutes` **is**
+ * compared: the same key with other minutes, or the booking's own key, is 409.
  */
 export const ExtendSessionRequest = z.object({
   minutes: z.number().int().positive(),
@@ -164,6 +177,16 @@ export const ActiveSessionResponse = z.object({
   session: Session.nullable(),
 });
 export type ActiveSessionResponse = z.infer<typeof ActiveSessionResponse>;
+
+/**
+ * Response of `GET /v1/sessions/:sessionId` — one session of the signed-in
+ * user, in its current state. Someone else's session and a missing one are the
+ * same 404.
+ */
+export const SessionResponse = z.object({
+  session: Session,
+});
+export type SessionResponse = z.infer<typeof SessionResponse>;
 
 /**
  * Response of `GET /v1/sessions` — every session of the signed-in user, newest

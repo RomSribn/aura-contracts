@@ -17,7 +17,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `advisor` | `AdvisorId`, `Advisor`, `AdvisorReview`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013, AURAF-0014 |
 | `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003, AURAF-0018 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
-| `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses | AURAD-0002, AURAT-0008, AURAF-0013 |
+| `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses, `SessionResponse` | AURAD-0002, AURAT-0008, AURAF-0013, AURAF-0020 |
 | `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
 | `envelope` | `ApiError` | AURAI-0002 |
 | `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
@@ -30,6 +30,14 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.23.0` adds **one session by id** (`AURAF-0020`; BFF `AURAT-0111`, web
+`AURAT-0110`): `SessionResponse` `{session}` for `GET /v1/sessions/:sessionId` —
+someone else's session and a missing one are the same 404. It also writes down
+the replay rule of `AURAT-0109`: a repeated booking key answers with the
+original session before the request is checked, body not compared; a repeated
+extend key does the same, but other `minutes` under it is 409. The comment on
+`EnsureConversationResponse` now names the real verb, `PUT`. Additive only.
 
 `v0.22.0` adds **message deletion** (`AURAF-0018`; app half `AURAT-0097`, BFF
 half `AURAT-0098`): when the desk deletes a message of either side, the BFF
