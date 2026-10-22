@@ -78,6 +78,15 @@ export const Session = z.object({
   endsAt: z.string(),
   finishedAt: z.string().nullable(),
   finishReason: SessionFinishReason.nullable(),
+  /**
+   * The question the user booked with (`BookSessionRequest.question`, trimmed),
+   * or null. Set once at booking; reschedule, extend and cancel keep it. Shown
+   * back only to its author and, as a private note, to the desk — it is the
+   * user's own text, so the server never logs it and erases it with the
+   * account. Optional on the wire, always `string | null` after parsing: a
+   * server that predates `v0.24.0` still satisfies the schema.
+   */
+  question: z.string().nullable().default(null),
 });
 export type Session = z.infer<typeof Session>;
 
@@ -105,6 +114,13 @@ export type Session = z.infer<typeof Session>;
  * keep the key until a definite outcome, also across a slot change (web
  * `AURAT-0107-005` §4); turning a mismatch into a refusal is a breaking change
  * for them, made only together.
+ *
+ * `question` (`v0.24.0`, web Ask → `/match` → Book) is what the user wants the
+ * advisor to prepare for. Optional: missing, empty or whitespace-only all mean
+ * "no question", not a refusal; at most 250 characters after trimming. It
+ * travels to the desk with the booking and comes back on `Session.question`.
+ * A replay keeps the **original** question — like the slot and the block, the
+ * repeat's question is neither compared nor written.
  */
 export const BookSessionRequest = z
   .object({
@@ -112,6 +128,7 @@ export const BookSessionRequest = z
     startNow: z.boolean().optional(),
     minutes: z.number().int().positive(),
     idempotencyKey: z.string().uuid(),
+    question: z.string().trim().max(250).optional(),
   })
   .refine(
     request => (request.startNow === true) !== (request.startsAt !== undefined),

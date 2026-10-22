@@ -31,6 +31,15 @@ floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
 
+`v0.24.0` adds the **question to the advisor** (`AURAF-0020-028`; BFF
+`AURAT-0122`, web `AURAT-0121`): `BookSessionRequest.question` — optional, at
+most 250 characters after trimming, empty or whitespace-only meaning no
+question — travels with the booking to the desk, and `Session.question` returns
+it (`string | null`). `question` is optional on the wire and always
+`string | null` after parsing — a server that predates this version still
+satisfies the schema. A replayed booking keeps the original question. Additive
+only.
+
 `v0.23.0` adds **one session by id** (`AURAF-0020`; BFF `AURAT-0111`, web
 `AURAT-0110`): `SessionResponse` `{session}` for `GET /v1/sessions/:sessionId` —
 someone else's session and a missing one are the same 404. It also writes down
