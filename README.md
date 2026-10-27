@@ -23,6 +23,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
 | `account` | `AccountDeletionRefusalCode`, `ACCOUNT_DELETED` | AURAT-0042 |
+| `promo` | `RedeemPromoCodeRequest`, `RedeemPromoCodeResponse`, `PromoCodeRefusalCode` | AURAF-0021, AURAT-0143 |
 
 Every shape mirrors a route the BFF actually serves. **Money is always an
 integer of minor units** on the field that owns it (`balanceMinor`,
@@ -30,6 +31,16 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.25.0` adds **promo codes** (`AURAF-0021`; BFF `AURAT-0143`, app `AURAT-0144`,
+web `AURAT-0145`): `POST /v1/wallet/promo-codes/redeem` with `{code}` — the code
+as typed, normalised by the server, and only ever in the body because URLs are
+logged. `200` `RedeemPromoCodeResponse` `{entryId, balanceMinor, currency,
+creditedMinor, replayed}` — the Play response's shape; `replayed: true` is this
+account redeeming its own code again, never a second credit. Refusals are `409`
+with a `PromoCodeRefusalCode`, except `promo_code_too_many_attempts`, which is
+`429` with `Retry-After`. No amount on the wire: the credit is the batch's.
+Additive only.
 
 `v0.24.0` adds the **question to the advisor** (`AURAF-0020-028`; BFF
 `AURAT-0122`, web `AURAT-0121`): `BookSessionRequest.question` — optional, at
