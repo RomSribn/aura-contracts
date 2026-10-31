@@ -23,7 +23,7 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
 | `account` | `AccountDeletionRefusalCode`, `ACCOUNT_DELETED` | AURAT-0042 |
-| `promo` | `RedeemPromoCodeRequest`, `RedeemPromoCodeResponse`, `PromoCodeRefusalCode` | AURAF-0021, AURAT-0143 |
+| `promo` | `RedeemPromoCodeRequest`, `RedeemPromoCodeResponse`, `PromoCodeRefusalCode` | AURAF-0021, AURAT-0143, AURAF-0022, AURAT-0146 |
 
 Every shape mirrors a route the BFF actually serves. **Money is always an
 integer of minor units** on the field that owns it (`balanceMinor`,
@@ -31,6 +31,14 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.26.0` documents **public promo codes** (`AURAF-0022`; BFF `AURAT-0146`):
+one code an operator names for a campaign (`WINTER5`), redeemed once by every
+account, on the same route with the same shapes. No schema changes — clients
+built against `v0.25.0` handle public codes as they are: the server reads any
+4–20 letters and digits, entering a public code again is a `200` with
+`replayed: true`, and `promo_code_already_used` / `promo_code_campaign_used`
+are never sent for one. Documentation only.
 
 `v0.25.0` adds **promo codes** (`AURAF-0021`; BFF `AURAT-0143`, app `AURAT-0144`,
 web `AURAT-0145`): `POST /v1/wallet/promo-codes/redeem` with `{code}` — the code

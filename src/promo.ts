@@ -8,6 +8,17 @@ import { Currency } from './money';
  * the same billing flag as the rest of `/v1/wallet` (a `404` with no code means
  * the flag is off).
  *
+ * Two kinds travel the same route with the same shapes:
+ * - **single-use** codes (`K7QM-9XRT`), generated in batches — each is
+ *   redeemed once, by whoever holds it, and one per batch per account;
+ * - **public** codes (`AURAF-0022`, BFF `AURAT-0146`, since `v0.26.0`) — one
+ *   code an operator names for a campaign (`WINTER5`), redeemed **once by every
+ *   account**, with no limit on how many accounts, until it expires or is
+ *   switched off.
+ *
+ * The client cannot tell the kinds apart and does not need to: the request,
+ * the response and the refusals are the same.
+ *
  * - **`200`** with `RedeemPromoCodeResponse` — credited, or, with
  *   `replayed: true`, this account had already redeemed this code (a response
  *   lost on the way back is safe to retry; nothing is credited twice).
@@ -33,7 +44,8 @@ export const RedeemPromoCodeRequest = z.object({
    * As the person typed or pasted it. Case, spaces, dashes and invisible
    * characters are the server's to normalise (`K7QM-9XRT`, `k7qm 9xrt` are the
    * same code), so the client checks only that the field is not empty — the
-   * format can change without a client release.
+   * format can change without a client release — which is how public codes
+   * (`WINTER5`, any 4–20 letters and digits) arrived with none (`v0.26.0`).
    */
   code: z.string().min(1).max(64),
 });
@@ -49,8 +61,8 @@ export const RedeemPromoCodeResponse = z.object({
   creditedMinor: z.number().int().positive(),
   /**
    * True when this account had already redeemed this code. Not an error: it is
-   * the expected answer to a retry after a lost response. Nothing was credited
-   * twice.
+   * the expected answer to a retry after a lost response — and, for a public
+   * code, to a person entering it a second time. Nothing was credited twice.
    */
   replayed: z.boolean(),
 });
@@ -63,13 +75,23 @@ export type RedeemPromoCodeResponse = z.infer<typeof RedeemPromoCodeResponse>;
 export const PromoCodeRefusalCode = z.enum([
   /** HTTP 409. No such code — or not even the shape of one. Counts toward the attempt limit. */
   'promo_code_not_found',
-  /** HTTP 409. Redeemed by another account. (By this one, it is a `200` replay.) */
+  /**
+   * HTTP 409. Redeemed by another account. (By this one, it is a `200` replay.)
+   * Single-use codes only: a public code is everybody's.
+   */
   'promo_code_already_used',
-  /** HTTP 409. The batch's validity has ended. */
+  /** HTTP 409. The batch's validity has ended (a public code's too). */
   'promo_code_expired',
-  /** HTTP 409. An operator switched the code, or its whole batch, off. */
+  /**
+   * HTTP 409. An operator switched the code, or its whole batch, off. A public
+   * code switched off stops crediting new accounts; what it credited stays.
+   */
   'promo_code_disabled',
-  /** HTTP 409. This account has already redeemed a code from the same batch — one per account. */
+  /**
+   * HTTP 409. This account has already redeemed a code from the same batch — one
+   * per account. Single-use codes only: a public batch has one code, and
+   * entering it again is a `200` replay.
+   */
   'promo_code_campaign_used',
   /**
    * HTTP 429, with `Retry-After` in seconds. Too many unknown codes from this
