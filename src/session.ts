@@ -129,6 +129,15 @@ export const BookSessionRequest = z
     minutes: z.number().int().positive(),
     idempotencyKey: z.string().uuid(),
     question: z.string().trim().max(250).optional(),
+    /**
+     * What the client showed it would cost (`SessionPricing.blocks[].costMinor`,
+     * `AURAT-0147`). When sent and the price decided in the booking's
+     * transaction differs — a campaign started, ended or was switched off in
+     * between — nothing is charged and the answer is 409 with
+     * `code: SESSION_PRICE_CHANGED`: re-read the price and show it. Absent, the
+     * server's price is charged as before.
+     */
+    expectedCostMinor: z.number().int().nonnegative().optional(),
   })
   .refine(
     request => (request.startNow === true) !== (request.startsAt !== undefined),
@@ -138,6 +147,9 @@ export const BookSessionRequest = z
     },
   );
 export type BookSessionRequest = z.infer<typeof BookSessionRequest>;
+
+/** `ApiError.code` of the 409 when `expectedCostMinor` no longer holds. */
+export const SESSION_PRICE_CHANGED = 'session_price_changed';
 
 /**
  * Body of `POST /v1/sessions/:sessionId/extend` — more minutes on the session
@@ -284,6 +296,26 @@ export const AvailabilityResponse = z.object({
 export type AvailabilityResponse = z.infer<typeof AvailabilityResponse>;
 
 /**
+ * Which discount a priced block carries (`AURAT-0147`). `pct` is the label's
+ * figure; the money is `creditMinor`. `label` is the campaign's ("Winter
+ * sale"), `null` for the first-session offer, whose wording the client owns.
+ */
+export const SESSION_DISCOUNT_KINDS = ['first_session', 'campaign'] as const;
+export type SessionDiscountKind = (typeof SESSION_DISCOUNT_KINDS)[number];
+
+export const SessionPriceDiscount = z.object({
+  /**
+   * One of `SESSION_DISCOUNT_KINDS` today. A plain string so that a kind added
+   * later cannot break parsing the price in a released client — an unknown one
+   * is shown as a plain saving.
+   */
+  kind: z.string().min(1),
+  pct: z.number().int().min(1).max(100),
+  label: z.string().min(1).nullable(),
+});
+export type SessionPriceDiscount = z.infer<typeof SessionPriceDiscount>;
+
+/**
  * Response of `GET /v1/advisors/:advisorId/sessions/pricing` — display-only
  * figures read from the same source the debit uses, so the app shows exactly
  * what the server will charge. An advisor with no registered price is not
@@ -308,6 +340,13 @@ export const SessionPricing = z.object({
       creditMinor: z.number().int().nonnegative(),
       /** What the wallet will actually be debited — never recomputed app-side. */
       costMinor: z.number().int().nonnegative(),
+      /**
+       * Whose discount `creditMinor` is (`AURAT-0147`): the first-session offer
+       * or a seasonal campaign — the server takes the bigger of the two, never
+       * both, and a tie goes to the campaign. `null` with no discount. Absent
+       * from a server older than v0.27.0, where any discount is the offer.
+       */
+      discount: SessionPriceDiscount.nullable().optional(),
     }),
   ),
 });

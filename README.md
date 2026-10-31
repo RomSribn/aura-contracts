@@ -7,7 +7,9 @@ silent runtime drift (`AURAD-0006`).
 
 Every schema is grounded in a ratified decision in the shared `aura-missus` brain
 (`AURAI-0002`, `AURAD-0001/0002/0003`, `AURAF-0007`). This package holds the
-**contract shapes only** — no business logic, no I/O.
+**contract shapes only** — no business logic, no I/O. Deliberate exceptions:
+`season-contrast` and `season-copy`, pure rules both sides must agree on — the
+server refuses a season by them, the clients draw by them (see `v0.27.0`).
 
 ## What's inside
 
@@ -17,13 +19,16 @@ Every schema is grounded in a ratified decision in the shared `aura-missus` brai
 | `advisor` | `AdvisorId`, `Advisor`, `AdvisorReview`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013, AURAF-0014 |
 | `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003, AURAF-0018 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
-| `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses, `SessionResponse` | AURAD-0002, AURAT-0008, AURAF-0013, AURAF-0020 |
+| `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses, `SessionResponse`, `SessionPriceDiscount`, `SESSION_DISCOUNT_KINDS`, `SESSION_PRICE_CHANGED` | AURAD-0002, AURAT-0008, AURAF-0013, AURAF-0020 |
 | `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
 | `envelope` | `ApiError` | AURAI-0002 |
 | `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
 | `account` | `AccountDeletionRefusalCode`, `ACCOUNT_DELETED` | AURAT-0042 |
 | `promo` | `RedeemPromoCodeRequest`, `RedeemPromoCodeResponse`, `PromoCodeRefusalCode` | AURAF-0021, AURAT-0143, AURAF-0022, AURAT-0146 |
+| `app-config` | `AppConfigResponse`, `AppConfigSeason`, `AppConfigPromo`, `AppConfigDiscount`, `SeasonPalette`, `HexColor`, `HEX_COLOR_PATTERN`, `SEASON_TOKENS`, `SEASON_EFFECTS` | AURAF-0022, AURAT-0147, AURAT-0150 |
+| `season-copy` | `SeasonCopy`, `SEASON_COPY_KEYS`, `SEASON_COPY_LIMITS`, `SEASON_PLACEHOLDERS`, `SEASON_COPY_PLACEHOLDERS`, `fillSeasonCopy`, `formatSeasonAmount`, `seasonPlaceholdersIn` | AURAT-0147, SEASONAL.md |
+| `season-contrast` | `SEASON_CONTRAST_PAIRS` (P1–P20), `checkSeasonPalette` (a partial palette too — the table of a draft), `seasonPalettePasses` (a whole palette, every pair), `contrastRatio` | AURAD-0022, AURAT-0150 |
 
 Every shape mirrors a route the BFF actually serves. **Money is always an
 integer of minor units** on the field that owns it (`balanceMinor`,
@@ -31,6 +36,35 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.27.0` adds **seasonal campaigns** (`AURAF-0022`; BFF `AURAT-0147`, app
+`AURAT-0148`, web `AURAT-0149`, design `AURAT-0150` / `SEASONAL.md`).
+`GET /v1/app-config` — public, no token, `ETag`/`304`, one minute of cache —
+returns `AppConfigResponse` `{season, promo, discount}`, each `null` or what is
+in effect now with its own `endsAt`. A season is a full **palette of 17 tokens**
+(`SeasonPalette`, `#RRGGBB`), two pictures (`art.hero`, `art.ticket`, absolute
+URLs never overwritten in place), **nine texts** (`SeasonCopy`: hero title, body
+with and without a code, button, the code ticket's and the discount ticket's
+lines) and an effect. Texts arrive with placeholders unfilled — `{code}` and
+`{amount}` from `promo` (`code`, `amountMinor`), `{pct}` from `discount` — and
+`fillSeasonCopy` / `formatSeasonAmount` fill them the way the server measured
+them against `SEASON_COPY_LIMITS`; `SEASON_COPY_PLACEHOLDERS` says which a text
+may use (only those that always have a value where it shows). `preset` and
+`effect` are plain strings so a value a released client does not know cannot
+break the parse; an unknown preset is drawn from its palette, an unknown effect
+is no effect. `promo` and `discount` are `null` while billing is off;
+`discount` is display only. `season-contrast` holds the rule a palette passes
+before the backoffice lets it go live — WCAG ratios for pairs P1–P18 of the
+brief and P19–P20 (ink and teal-ink on the ticket body) (text ≥ 4.5, the button
+edge ≥ 3, `#FFFFFF@0.70` composited over its ground) — so the
+clients can re-check with the same code. Whitelist, pairs, keys and limits
+change only through a new minor version. `SessionPricing.blocks[].discount`
+(optional, `{kind, pct, label}` or `null`; `kind` a string, known values in
+`SESSION_DISCOUNT_KINDS`) says whose discount `creditMinor` is: the server
+takes the bigger of the first-session offer and a campaign, never both, a tie
+going to the campaign. `BookSessionRequest.expectedCostMinor` (optional) is the
+price the client showed; if the booking's own price differs, nothing is charged
+and the answer is 409 with `code` `SESSION_PRICE_CHANGED` (`session_price_changed`). Additive only.
 
 `v0.26.0` documents **public promo codes** (`AURAF-0022`; BFF `AURAT-0146`):
 one code an operator names for a campaign (`WINTER5`), redeemed once by every
