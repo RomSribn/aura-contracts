@@ -17,7 +17,7 @@ server refuses a season by them, the clients draw by them (see `v0.27.0`).
 |---|---|---|
 | `money` | `Currency` (USD) | AURAD-0002 |
 | `advisor` | `AdvisorId`, `Advisor`, `AdvisorReview`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013, AURAF-0014 |
-| `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003, AURAF-0018 |
+| `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `MESSAGE_MARKERS`, `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003, AURAF-0018, AURAF-0023 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses, `SessionResponse`, `SessionPriceDiscount`, `SESSION_DISCOUNT_KINDS`, `SESSION_PRICE_CHANGED` | AURAD-0002, AURAT-0008, AURAF-0013, AURAF-0020 |
 | `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
@@ -26,7 +26,8 @@ server refuses a season by them, the clients draw by them (see `v0.27.0`).
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
 | `account` | `AccountDeletionRefusalCode`, `ACCOUNT_DELETED` | AURAT-0042 |
 | `promo` | `RedeemPromoCodeRequest`, `RedeemPromoCodeResponse`, `PromoCodeRefusalCode` | AURAF-0021, AURAT-0143, AURAF-0022, AURAT-0146 |
-| `app-config` | `AppConfigResponse`, `AppConfigSeason`, `AppConfigPromo`, `AppConfigDiscount`, `SeasonPalette`, `HexColor`, `HEX_COLOR_PATTERN`, `SEASON_TOKENS`, `SEASON_EFFECTS` | AURAF-0022, AURAT-0147, AURAT-0150 |
+| `app-config` | `AppConfigResponse`, `AppConfigSeason`, `AppConfigPromo`, `AppConfigDiscount`, `AppConfigDisabledLanguages`, `SeasonPalette`, `HexColor`, `HEX_COLOR_PATTERN`, `SEASON_TOKENS`, `SEASON_EFFECTS` | AURAF-0022, AURAT-0147, AURAT-0150, AURAF-0023 |
+| `language` | `LANGUAGES`, `Language`, `SOURCE_LANGUAGE`, `LANGUAGE_QUERY_PARAM`, `isLanguage` | AURAF-0023, AURAI-0010, AURAT-0168 |
 | `season-copy` | `SeasonCopy`, `SEASON_COPY_KEYS`, `SEASON_COPY_LIMITS`, `SEASON_PLACEHOLDERS`, `SEASON_COPY_PLACEHOLDERS`, `fillSeasonCopy`, `formatSeasonAmount`, `seasonPlaceholdersIn` | AURAT-0147, SEASONAL.md |
 | `season-contrast` | `SEASON_CONTRAST_PAIRS` (P1–P20), `checkSeasonPalette` (a partial palette too — the table of a draft), `seasonPalettePasses` (a whole palette, every pair), `contrastRatio` | AURAD-0022, AURAT-0150 |
 
@@ -36,6 +37,20 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.28.0` adds **the language on the wire** (`AURAF-0023`; BFF `AURAT-0168`,
+app `AURAT-0169`, web `AURAT-0170`, tarot deck `AURAT-0171`). `LANGUAGES` — the
+24 codes both clients ship (en + the other 23 official EU languages), with
+`isLanguage` (exact match, no normalisation) and `SOURCE_LANGUAGE` (`en`). A
+client states its language as `?lang=` (`LANGUAGE_QUERY_PARAM`) on JSON requests
+and uploads — not on picture or attachment addresses, not on the socket; an
+unknown or switched-off value is answered in English, never a `400`.
+`Message.marker` — on a `system` message that is a session marker,
+`session_started` / `session_finished` (`MESSAGE_MARKERS`), a plain string so a
+later marker does not break parsing; it wins over the English `content`, which
+stays for older clients. `AppConfigResponse.disabledLanguages` — the operator's
+switch for a translation that shipped wrong (`AppConfigDisabledLanguages`, plain
+strings, `[]` by default so a `v0.27` answer still parses). Additive only.
 
 `v0.27.0` adds **seasonal campaigns** (`AURAF-0022`; BFF `AURAT-0147`, app
 `AURAT-0148`, web `AURAT-0149`, design `AURAT-0150` / `SEASONAL.md`).

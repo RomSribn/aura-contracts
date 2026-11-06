@@ -20,6 +20,16 @@ export const MessageDirection = z.enum(['user', 'advisor', 'system']);
 export type MessageDirection = z.infer<typeof MessageDirection>;
 
 /**
+ * What a `system` message marks (`AURAF-0023`, BFF `AURAT-0168`), so a client
+ * draws the divider in its own language instead of matching the English text.
+ * The wire carries a plain string: a marker added later must not stop an older
+ * client from parsing the message — it draws `content` for a value it does not
+ * know.
+ */
+export const MESSAGE_MARKERS = ['session_started', 'session_finished'] as const;
+export type MessageMarker = (typeof MESSAGE_MARKERS)[number];
+
+/**
  * What a chat attachment actually is, as far as the app is concerned. Mirrors
  * the four kinds a chatter can send from the agent desk; everything else the
  * provider can enumerate (locations, contact cards, channel fallbacks) arrives
@@ -95,6 +105,14 @@ export const Message = z.object({
   id: z.string(),
   advisorId: AdvisorId,
   direction: MessageDirection,
+  /**
+   * As written — and where the server wrote it, in English, for the clients
+   * already in people's hands: the session markers ("Your session has
+   * started"), and the caption left on a chatter's message that was nothing but
+   * a token ("Choose a card" with `spread`, "Continue this reading privately"
+   * with `sessionInvite`). A client that understands `marker`, `spread` or
+   * `sessionInvite` shows its own translated words for those, not this text.
+   */
   content: z.string(),
   createdAt: z.string(),
   /**
@@ -172,6 +190,17 @@ export const Message = z.object({
    * does (`AURAF-0013`, owner, 01.09).
    */
   sessionInvite: SessionInvite.optional(),
+  /**
+   * Present only on a `system` message that is a known marker — one of
+   * `MESSAGE_MARKERS` today (`AURAF-0023`, BFF `AURAT-0168`). Absent, not null,
+   * on every other message, as `spread` and `sessionInvite` are.
+   *
+   * It takes precedence over `content`: draw the marker in the reader's
+   * language, and fall back to `content` for a value this client does not know.
+   * The server derives it from the stored text, so messages sent before this
+   * field existed carry it too.
+   */
+  marker: z.string().min(1).optional(),
 });
 export type Message = z.infer<typeof Message>;
 

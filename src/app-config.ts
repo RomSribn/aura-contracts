@@ -144,11 +144,25 @@ export const AppConfigDiscount = z.object({
 });
 export type AppConfigDiscount = z.infer<typeof AppConfigDiscount>;
 
+/**
+ * Languages switched off by the operator (`AURAF-0023`, BFF `AURAT-0168`) — the
+ * safety net for a translation that shipped wrong, since there are no
+ * over-the-air updates. A client whose chosen or system language is listed
+ * shows English. Codes from `LANGUAGES`, never `en`; plain strings rather than
+ * `Language`, so a code an older client has never heard of cannot stop it from
+ * reading the rest of the config. The server answers a switched-off language in
+ * English too, whatever a client still has cached.
+ */
+export const AppConfigDisabledLanguages = z.array(z.string());
+export type AppConfigDisabledLanguages = z.infer<typeof AppConfigDisabledLanguages>;
+
 export const AppConfigResponse = z.object({
   season: AppConfigSeason.nullable(),
   /** Always `null` while billing is off. */
   promo: AppConfigPromo.nullable(),
   /** Always `null` while billing is off. */
   discount: AppConfigDiscount.nullable(),
+  /** Empty when nothing is switched off; absent from a `v0.27` server — hence the default. */
+  disabledLanguages: AppConfigDisabledLanguages.default([]),
 });
 export type AppConfigResponse = z.infer<typeof AppConfigResponse>;

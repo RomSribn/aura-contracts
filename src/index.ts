@@ -11,6 +11,7 @@ export * from './tarot';
 export * from './account';
 export * from './promo';
 export * from './app-config';
+export * from './language';
 export * from './season-copy';
 export {
   checkSeasonPalette,
