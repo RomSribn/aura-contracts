@@ -39,7 +39,7 @@ export type LocalDate = z.infer<typeof LocalDate>;
  */
 export const TarotCard = z.object({
   id: TarotCardId,
-  /** English name, e.g. "The Sun". */
+  /** Name in the request's language (`?lang`), e.g. "The Sun" in English. */
   name: z.string(),
   /** Three keywords joined by " · ", e.g. "Clarity · Warmth · Vitality". */
   keywords: z.string(),
