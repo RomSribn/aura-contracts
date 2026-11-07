@@ -17,12 +17,13 @@ server refuses a season by them, the clients draw by them (see `v0.27.0`).
 |---|---|---|
 | `money` | `Currency` (USD) | AURAD-0002 |
 | `advisor` | `AdvisorId`, `Advisor`, `AdvisorReview`, `AdvisorCategory`, `AdvisorsResponse` | AURAD-0001, AURAT-0013, AURAF-0014 |
-| `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `MESSAGE_MARKERS`, `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003, AURAF-0018, AURAF-0023 |
+| `chat` | `Message`, `MessageDirection` (`user`/`advisor`/`system`), `MESSAGE_MARKERS`, `MessageTranslation`, `MessageTranslationUpdate`, `SendMessageRequest`, `HistoryQuery`/`HistoryResponse`, `WsServerEvent`, `MessagePushData` | AURAI-0002, AURAD-0001/0003, AURAF-0018, AURAF-0023, AURAF-0024 |
+| `chat-settings` | `ChatSettings`, `ChatConsent`, `CHAT_CONSENT_VERSION`, `ChatSettingsPatchRequest`, `ChatSettingsRefusalCode` | AURAF-0024, AURAI-0012 |
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses, `SessionResponse`, `SessionPriceDiscount`, `SESSION_DISCOUNT_KINDS`, `SESSION_PRICE_CHANGED` | AURAD-0002, AURAT-0008, AURAF-0013, AURAF-0020 |
 | `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
 | `envelope` | `ApiError` | AURAI-0002 |
-| `profile` | `ProfileResponse`, `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063 |
+| `profile` | `ProfileResponse` (+ `chat`), `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063, AURAF-0024 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
 | `account` | `AccountDeletionRefusalCode`, `ACCOUNT_DELETED` | AURAT-0042 |
 | `promo` | `RedeemPromoCodeRequest`, `RedeemPromoCodeResponse`, `PromoCodeRefusalCode` | AURAF-0021, AURAT-0143, AURAF-0022, AURAT-0146 |
@@ -36,7 +37,26 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 `costMinor`, `priceMinorPerMinute`, `amountMinor`) — no money object, no
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
-`WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+`WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`;
+the chat-translation shapes of `v0.31.0` are forward contracts too, until the
+BFF's chat-settings and translation pipeline ship (`AURAF-0024`).
+
+`v0.31.0` describes **chat translation** (`AURAF-0024`; research `AURAI-0012`,
+contracts `AURAT-0195`). An advisor's `Message` may carry `translation` —
+`pending`, `translated` (with the reply in the reader's language) or `failed`,
+each with its `language`; `content` stays the English original. A translation
+that lands later arrives as the WebSocket event `message.translated` (no push)
+or, for a client that was away, through `HistoryQuery.translatedFrom` →
+`HistoryResponse.translations`, the way `deletedFrom` catches up deletions.
+`ProfileResponse.chat` (`ChatSettings`) holds the person's chat language —
+written only by a message send's `?lang`, so a client without a language
+choice leaves `?lang` off its sends — the translation switch and the consent
+ticked before the first chat message (`CHAT_CONSENT_VERSION`); both are written
+by `PATCH /v1/me/chat-settings` (`ChatSettingsPatchRequest`, refusal
+`chat_consent_required`), which answers with `ProfileResponse`. Every new
+response field is optional — absent means the server does not do it yet — and
+an unknown translation status drops the translation, never the message.
+Additive only.
 
 `v0.30.0` translates **the season's texts and the campaign's sale name**
 (`AURAF-0023`; BFF `AURAT-0189`). `GET /v1/app-config` is now the same for

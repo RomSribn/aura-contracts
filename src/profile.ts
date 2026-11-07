@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ChatSettings } from './chat-settings';
 
 /**
  * The signed-in person's own profile (`AURAF-0015`, BFF half `AURAT-0063`, app
@@ -149,6 +150,13 @@ export const ProfileResponse = z.object({
    * design's default portrait, not a placeholder waiting for a photograph.
    */
   avatarId: z.string().nullable().default(null),
+  /**
+   * Chat language, the translation switch and the chat consent
+   * (`AURAF-0024`) — see `ChatSettings`. Absent from a server that does not
+   * keep chat settings yet: then show neither the consent checkbox nor the
+   * switch, there is nowhere to store them.
+   */
+  chat: ChatSettings.optional(),
 });
 export type ProfileResponse = z.infer<typeof ProfileResponse>;
 

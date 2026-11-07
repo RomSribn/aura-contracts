@@ -96,6 +96,54 @@ export const MessageAttachment = z.object({
 export type MessageAttachment = z.infer<typeof MessageAttachment>;
 
 /**
+ * The reader's-language version of an advisor's reply (`AURAF-0024`, research
+ * `AURAI-0012`). The server writes the reply first and translates it as a
+ * separate step, so a reply is delivered at once with `pending` and the result
+ * follows on the socket (`message.translated`) or through history
+ * (`HistoryQuery.translatedFrom`). The order of the thread is the order of the
+ * messages; the order in which their translations land carries no meaning.
+ *
+ * `language` is the language the server translates INTO — the person's chat
+ * language (`ChatSettings.language`) at the moment the reply arrived. It is a
+ * plain string, as `copyLanguage` is, and it can differ from the language the
+ * client is showing right now: the person switched language since, or wrote
+ * last from the other client (the web and the app share one chat language).
+ *
+ * What a client shows (`AURAI-0012` §7):
+ * - `pending` — the English `content`, marked as being translated;
+ * - `translated` in the language the client is showing — `content` of this
+ *   object, marked as translated by AI, with a way to show the original;
+ * - `failed`, or a `language` other than the one shown — the English `content`
+ *   with a quiet note (not translated / translated into …). No retry button:
+ *   the server fills a failed translation in by itself when it can, and says
+ *   so with `message.translated`.
+ *
+ * Previews of a thread (Home, the chat list) follow the same rule.
+ */
+export const MessageTranslation = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('pending'), language: z.string().min(1) }),
+  z.object({
+    status: z.literal('translated'),
+    language: z.string().min(1),
+    /** The reply in `language`. The original stays in `Message.content`. */
+    content: z.string(),
+  }),
+  z.object({ status: z.literal('failed'), language: z.string().min(1) }),
+]);
+export type MessageTranslation = z.infer<typeof MessageTranslation>;
+
+/**
+ * One message's current translation, outside the message itself — the shape
+ * of `HistoryResponse.translations` and of the `message.translated` event.
+ * `messageId` is our `Message.id`.
+ */
+export const MessageTranslationUpdate = z.object({
+  messageId: z.string(),
+  translation: MessageTranslation,
+});
+export type MessageTranslationUpdate = z.infer<typeof MessageTranslationUpdate>;
+
+/**
  * A chat message. `id` is the BFF's own orderable id — Chatwoot message ids
  * never leave the BFF; history pages arrive already sorted ascending.
  * `createdAt` is ISO-8601 (the agent desk's authoritative send time).
@@ -201,6 +249,27 @@ export const Message = z.object({
    * field existed carry it too.
    */
   marker: z.string().min(1).optional(),
+  /**
+   * The reply in the reader's language (`AURAF-0024`) — see
+   * `MessageTranslation` for what each status means and what to show.
+   *
+   * Only ever on `direction: 'advisor'`. `content` does not change because of
+   * it: an advisor's `content` stays the English original, a person's
+   * `content` stays what they wrote, and there is no separate `original`. The
+   * English the server makes of a person's message for the agent desk stays on
+   * the server.
+   *
+   * Absent, not null, whenever there is no translation and none is coming:
+   * translation is off on the server, the person has not consented or turned
+   * it off, their chat language is English or unknown, the message is a
+   * marker, a token's fallback caption or an attachment without a caption, or
+   * it arrived before translation existed. Show `content`, as before.
+   *
+   * `.catch(undefined)`: a status this client does not know drops the
+   * translation — the English stays — rather than the whole message, the same
+   * harm the note on `idempotencyKey` guards against.
+   */
+  translation: MessageTranslation.optional().catch(undefined),
 });
 export type Message = z.infer<typeof Message>;
 
@@ -247,6 +316,13 @@ export type IdempotencyKey = z.infer<typeof IdempotencyKey>;
  * making it required would reject every message from every phone already in
  * people's hands. A send without it simply gets no retry protection — which is
  * exactly the situation before this version.
+ *
+ * The `?lang` of this request (JSON or multipart) is the one `?lang` with a
+ * lasting effect: it sets `ChatSettings.language`, the language the person's
+ * replies are translated into (`AURAF-0024`). A send without `?lang` leaves
+ * that language as it was. So a client that offers no choice of language does
+ * not put `?lang` on a send — otherwise every message it sends writes `en`
+ * and switches translation of the replies off.
  */
 export const SendMessageRequest = z.object({
   content: z.string().trim().max(4000).default(''),
@@ -350,6 +426,14 @@ export const HistoryQuery = z.object({
   // lists, in `deletedIds`, the ids of deleted messages positioned at or after
   // it. An id the BFF does not know yields an empty list, not an error.
   deletedFrom: z.string().optional(),
+  /**
+   * Catch-up for translations missed off the socket (`AURAF-0024`), the same
+   * way `deletedFrom` catches up deletions: a message id — typically the
+   * oldest one in the thread whose translation is still `pending` or `failed`.
+   * The response then lists, in `translations`, the current translation of
+   * every advisor message positioned at or after it that has one.
+   */
+  translatedFrom: z.string().optional(),
 });
 export type HistoryQuery = z.infer<typeof HistoryQuery>;
 
@@ -358,13 +442,27 @@ export const HistoryResponse = z.object({
   // Ids of messages the desk deleted, positioned at or after `deletedFrom`.
   // Empty without `deletedFrom`. Deleted messages never appear in `messages`.
   deletedIds: z.array(z.string()).default([]),
+  /**
+   * Current translations of the advisor messages positioned at or after
+   * `translatedFrom` (`AURAF-0024`). Replace by `messageId`: an entry may
+   * repeat a message that is also in `messages`, with the same state. An id
+   * the server does not know yields an empty list, not an error; the server
+   * bounds the list as it bounds `deletedIds`.
+   *
+   * Absent without `translatedFrom` — and absent from a server that does not
+   * translate yet, which drops the unknown parameter. `.catch(undefined)`: an
+   * entry with a status this client does not know drops the catch-up, never
+   * the page of history.
+   */
+  translations: z.array(MessageTranslationUpdate).optional().catch(undefined),
 });
 export type HistoryResponse = z.infer<typeof HistoryResponse>;
 
 /**
  * Server → app WebSocket events (`/ws?token=<Firebase ID token>`).
- * `message.new` (AURAT-0005), `session.updated` (AURAT-0008) and
- * `message.deleted` (AURAF-0018, v0.22.0) ship today;
+ * `message.new` (AURAT-0005), `session.updated` (AURAT-0008),
+ * `message.deleted` (AURAF-0018, v0.22.0) and `message.translated`
+ * (AURAF-0024, v0.31.0) are defined;
  * `presence.update` and `typing.update` are the persona-level events of
  * AURAD-0001 — emission is AURAT-0009, the app already handles them (and
  * their absence) gracefully.
@@ -403,6 +501,17 @@ export const WsServerEvent = z.discriminatedUnion('type', [
     type: z.literal('message.deleted'),
     advisorId: AdvisorId,
     messageId: z.string(),
+  }),
+  // A reply's translation settled (AURAF-0024): `translated`, or `failed` —
+  // `pending` arrives with the message itself in `message.new`. Replace the
+  // translation of `messageId` (our `Message.id`). No FCM push accompanies it;
+  // a backgrounded app catches up via `translatedFrom`. A client built before
+  // this event drops it as an unknown type, as it did `message.deleted`.
+  z.object({
+    type: z.literal('message.translated'),
+    advisorId: AdvisorId,
+    messageId: z.string(),
+    translation: MessageTranslation,
   }),
 ]);
 export type WsServerEvent = z.infer<typeof WsServerEvent>;

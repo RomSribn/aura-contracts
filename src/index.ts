@@ -1,6 +1,7 @@
 export * from './money';
 export * from './advisor';
 export * from './chat';
+export * from './chat-settings';
 export * from './review';
 export * from './device';
 export * from './session';

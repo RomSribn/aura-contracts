@@ -10,6 +10,11 @@
  * key, and never on the socket. `Accept-Language` is not a signal: iOS sends
  * the device language there even from an English-only build.
  *
+ * Everywhere but one place it lasts for that one request. The exception is a
+ * message send: its `?lang` becomes the person's chat language
+ * (`ChatSettings.language`, `AURAF-0024`), so a client that offers no choice
+ * of language leaves `?lang` off its sends.
+ *
  * A value the server does not know is not an error. It answers in
  * `SOURCE_LANGUAGE` instead, as it does for a language switched off in
  * `AppConfigResponse.disabledLanguages` — never a `400`.
