@@ -98,13 +98,33 @@ export type AdvisorReview = z.infer<typeof AdvisorReview>;
 export const Advisor = z.object({
   id: AdvisorId,
   name: z.string(),
-  /** Short professional line, e.g. "Psychic Reader · Medium". */
+  /**
+   * Short professional line, e.g. "Psychic Reader · Medium" — since `v0.29.0`
+   * in the request language (`lang`), English by default. Terms joined by
+   * " · "; each one is translated, in the persona's grammatical gender where
+   * the language has one (`AURAT-0173`).
+   */
   role: z.string(),
   category: AdvisorCategory,
   /** One-line hook for list and profile headers. */
   tagline: z.string(),
   bio: z.string(),
+  /**
+   * What the advisor works with, one chip each — since `v0.29.0` in the
+   * request language (`lang`), English by default. Display text only: to ask
+   * what an advisor reads on, use `topics`, which has no language.
+   */
   specialties: z.array(z.string()),
+  /**
+   * The categories the advisor's specialties read on, in `AdvisorCategory`
+   * order, no repeats — the same in every language (`v0.29.0`, `AURAT-0173`).
+   * May include the advisor's own `category`, may be empty.
+   *
+   * It replaces matching words inside `specialties`, which stopped working the
+   * day those became translated. Defaulted, so a server predating `v0.29.0`
+   * still parses — as an advisor that reads on nothing beyond its category.
+   */
+  topics: z.array(AdvisorCategory).default([]),
   /** Seeds the first message of a new thread with this persona. */
   greeting: z.string(),
   avatarUrl: z.string().url(),

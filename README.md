@@ -38,6 +38,14 @@ floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
 
+`v0.29.0` translates **the advisor's labels** (`AURAF-0023`; BFF `AURAT-0173`).
+`Advisor.role` and `Advisor.specialties` arrive in the request language
+(`lang`), English by default — display text, no longer something to search for
+English words in. `Advisor.topics` — the categories an advisor's specialties
+read on (`AdvisorCategory[]`, no language, `[]` by default so a `v0.28` answer
+still parses) — is what a client matches on instead. `TarotCard.name`'s JSDoc
+now says it arrives in the request language too (`AURAT-0171`). Additive only.
+
 `v0.28.0` adds **the language on the wire** (`AURAF-0023`; BFF `AURAT-0168`,
 app `AURAT-0169`, web `AURAT-0170`, tarot deck `AURAT-0171`). `LANGUAGES` — the
 24 codes both clients ship (en + the other 23 official EU languages), with
