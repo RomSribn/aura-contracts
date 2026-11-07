@@ -106,8 +106,15 @@ export const Advisor = z.object({
    */
   role: z.string(),
   category: AdvisorCategory,
-  /** One-line hook for list and profile headers. */
+  /**
+   * One-line hook for list and profile headers — in the request language
+   * (`lang`), English by default (`AURAT-0184`).
+   */
   tagline: z.string(),
+  /**
+   * The persona about itself, first person; line breaks are meant — in the
+   * request language (`lang`), English by default (`AURAT-0184`).
+   */
   bio: z.string(),
   /**
    * What the advisor works with, one chip each — since `v0.29.0` in the
@@ -125,7 +132,12 @@ export const Advisor = z.object({
    * still parses — as an advisor that reads on nothing beyond its category.
    */
   topics: z.array(AdvisorCategory).default([]),
-  /** Seeds the first message of a new thread with this persona. */
+  /**
+   * The persona's opening line, which the client shows at the start of a
+   * thread with it. Never stored, never sent: it is not a message, and the
+   * chatter does not see it. In the request language (`lang`), English by
+   * default (`AURAT-0184`).
+   */
   greeting: z.string(),
   avatarUrl: z.string().url(),
   /**
