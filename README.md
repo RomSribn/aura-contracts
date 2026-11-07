@@ -28,7 +28,7 @@ server refuses a season by them, the clients draw by them (see `v0.27.0`).
 | `promo` | `RedeemPromoCodeRequest`, `RedeemPromoCodeResponse`, `PromoCodeRefusalCode` | AURAF-0021, AURAT-0143, AURAF-0022, AURAT-0146 |
 | `app-config` | `AppConfigResponse`, `AppConfigSeason`, `AppConfigPromo`, `AppConfigDiscount`, `AppConfigDisabledLanguages`, `SeasonPalette`, `HexColor`, `HEX_COLOR_PATTERN`, `SEASON_TOKENS`, `SEASON_EFFECTS` | AURAF-0022, AURAT-0147, AURAT-0150, AURAF-0023 |
 | `language` | `LANGUAGES`, `Language`, `SOURCE_LANGUAGE`, `LANGUAGE_QUERY_PARAM`, `isLanguage` | AURAF-0023, AURAI-0010, AURAT-0168 |
-| `season-copy` | `SeasonCopy`, `SEASON_COPY_KEYS`, `SEASON_COPY_LIMITS`, `SEASON_PLACEHOLDERS`, `SEASON_COPY_PLACEHOLDERS`, `fillSeasonCopy`, `formatSeasonAmount`, `seasonPlaceholdersIn` | AURAT-0147, SEASONAL.md |
+| `season-copy` | `SeasonCopy`, `SEASON_COPY_KEYS`, `SEASON_COPY_LIMITS`, `SEASON_COPY_TRANSLATED_LIMITS`, `SEASON_PLACEHOLDERS`, `SEASON_COPY_PLACEHOLDERS`, `fillSeasonCopy`, `formatSeasonAmount`, `seasonPlaceholdersIn` | AURAT-0147, SEASONAL.md, AURAT-0189 |
 | `season-contrast` | `SEASON_CONTRAST_PAIRS` (P1–P20), `checkSeasonPalette` (a partial palette too — the table of a draft), `seasonPalettePasses` (a whole palette, every pair), `contrastRatio` | AURAD-0022, AURAT-0150 |
 
 Every shape mirrors a route the BFF actually serves. **Money is always an
@@ -37,6 +37,20 @@ integer of minor units** on the field that owns it (`balanceMinor`,
 floats. Session and wallet shapes were aligned to the as-built BFF in
 `v0.3.0` (`AURAT-0010`); `presence.update` / `typing.update` in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`.
+
+`v0.30.0` translates **the season's texts and the campaign's sale name**
+(`AURAF-0023`; BFF `AURAT-0189`). `GET /v1/app-config` is now the same for
+everyone who asks in the same language — cache it per language.
+`AppConfigSeason.copy` arrives in the request language when the server has the
+whole set translated, English otherwise, and `copyLanguage` says which;
+`AppConfigDiscount.label` and `SessionPriceDiscount.label` likewise, with
+`labelLanguage`. Both are plain strings, `en` by default, so a `v0.29` answer
+still parses. `fillSeasonCopy` takes `amount` — the credit already written in
+the text's language — over `amountMinor`; `SEASON_COPY_TRANSLATED_LIMITS` is
+what a translation is held to (the discount line up to 40). `AppConfigPromo.headline` is the
+operator's own English text. The JSDoc of `Advisor.tagline` / `bio` /
+`greeting` now says they arrive in the request language (`AURAT-0184`).
+Additive only.
 
 `v0.29.0` translates **the advisor's labels** (`AURAF-0023`; BFF `AURAT-0173`).
 `Advisor.role` and `Advisor.specialties` arrive in the request language

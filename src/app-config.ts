@@ -6,8 +6,9 @@ import { SeasonCopy } from './season-copy';
  * `GET /v1/app-config` (`AURAF-0022`, BFF `AURAT-0147`; app `AURAT-0148`, web
  * `AURAT-0149`): what the operator has switched on right now, read before the
  * first screen — the season's look, the public code on show, the session
- * discount on show. Public (no token), the same answer for everyone, cached by
- * the server for a minute (`Cache-Control`, `ETag` → `304`).
+ * discount on show. Public (no token), the same answer for everyone who asks
+ * in the same language (`?lang`, `AURAT-0189`) — cache it per language. The
+ * server caches it for a minute (`Cache-Control`, `ETag` → `304`).
  *
  * Only what is in effect **now**. Every part carries its `endsAt`, so a client
  * holding a cached copy switches it off on time without asking again.
@@ -109,8 +110,18 @@ export const AppConfigSeason = z.object({
     /** Ticket stub glyph, 192×192, transparent. */
     ticket: z.string().url().nullable(),
   }),
-  /** All nine texts, placeholders unfilled — see `SEASON_COPY_PLACEHOLDERS`, `fillSeasonCopy`. */
+  /**
+   * All nine texts, placeholders unfilled — see `SEASON_COPY_PLACEHOLDERS`,
+   * `fillSeasonCopy`. In the request language when the server has the whole
+   * set translated, English otherwise (`AURAT-0189`).
+   */
   copy: SeasonCopy,
+  /**
+   * The language `copy` is written in: the request language or `en`. Mark the
+   * season's text with it (screen readers, `lang`) and write `{amount}` in it.
+   * A plain string, `en` when absent (a server older than `v0.30.0`).
+   */
+  copyLanguage: z.string().min(1).default('en'),
   /** One of `SEASON_EFFECTS` today; anything else — draw no effect. */
   effect: z.string().min(1).nullable(),
 });
@@ -126,6 +137,7 @@ export const AppConfigPromo = z.object({
   code: z.string().min(1),
   /** The code's credit, in cents — `{amount}` in the season's texts. */
   amountMinor: z.number().int().positive(),
+  /** The operator's own text, English. No client shows it today. */
   headline: z.string().min(1),
   endsAt: z.string().datetime({ offset: true }),
 });
@@ -138,7 +150,14 @@ export type AppConfigPromo = z.infer<typeof AppConfigPromo>;
  */
 export const AppConfigDiscount = z.object({
   campaignId: z.string().min(1),
+  /**
+   * The campaign's name for its sale ("Winter sale"): the server's translation,
+   * in normal case, in the request language — or, without one, as the operator
+   * typed it (`AURAT-0189`). Uppercase it in the language for an eyebrow.
+   */
   label: z.string().min(1),
+  /** The language `label` is written in; `en` when absent (older than `v0.30.0`). */
+  labelLanguage: z.string().min(1).default('en'),
   pct: z.number().int().min(1).max(100),
   endsAt: z.string().datetime({ offset: true }),
 });

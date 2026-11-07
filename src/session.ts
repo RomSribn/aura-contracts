@@ -311,7 +311,13 @@ export const SessionPriceDiscount = z.object({
    */
   kind: z.string().min(1),
   pct: z.number().int().min(1).max(100),
+  /**
+   * The campaign's name for its sale, as `AppConfigDiscount.label`: in the
+   * request language when translated, English otherwise (`AURAT-0189`).
+   */
   label: z.string().min(1).nullable(),
+  /** The language `label` is written in; `en` when absent (older than `v0.30.0`) or `label` is null. */
+  labelLanguage: z.string().min(1).default('en'),
 });
 export type SessionPriceDiscount = z.infer<typeof SessionPriceDiscount>;
 
