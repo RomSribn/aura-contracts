@@ -103,6 +103,11 @@ export type MessageAttachment = z.infer<typeof MessageAttachment>;
  * (`HistoryQuery.translatedFrom`). The order of the thread is the order of the
  * messages; the order in which their translations land carries no meaning.
  *
+ * Only the server starts a translation — once, when the reply arrives. No
+ * request a client makes translates anything: reading history, a sync, the
+ * catch-up and a change of language only read what the server stored
+ * (`AURAT-0198`).
+ *
  * `language` is the language the server translates INTO — the person's chat
  * language (`ChatSettings.language`) at the moment the reply arrived. It is a
  * plain string, as `copyLanguage` is, and it can differ from the language the
@@ -110,13 +115,15 @@ export type MessageAttachment = z.infer<typeof MessageAttachment>;
  * last from the other client (the web and the app share one chat language).
  *
  * What a client shows (`AURAI-0012` §7):
- * - `pending` — the English `content`, marked as being translated;
+ * - `pending` — the English `content`, marked as being translated. It is the
+ *   only status that still changes: the server settles it within minutes (it
+ *   retries on its own meanwhile) and says so with `message.translated`;
  * - `translated` in the language the client is showing — `content` of this
  *   object, marked as translated by AI, with a way to show the original;
  * - `failed`, or a `language` other than the one shown — the English `content`
- *   with a quiet note (not translated / translated into …). No retry button:
- *   the server fills a failed translation in by itself when it can, and says
- *   so with `message.translated`.
+ *   with a quiet note (not translated / translated into …). **`failed` is
+ *   final**: nothing more will come for that message, so there is no retry
+ *   button and nothing to catch up on (`AURAT-0198`).
  *
  * Previews of a thread (Home, the chat list) follow the same rule.
  */
@@ -428,10 +435,13 @@ export const HistoryQuery = z.object({
   deletedFrom: z.string().optional(),
   /**
    * Catch-up for translations missed off the socket (`AURAF-0024`), the same
-   * way `deletedFrom` catches up deletions: a message id — typically the
-   * oldest one in the thread whose translation is still `pending` or `failed`.
-   * The response then lists, in `translations`, the current translation of
-   * every advisor message positioned at or after it that has one.
+   * way `deletedFrom` catches up deletions: a message id — the oldest one in
+   * the thread whose translation is still `pending`. Not a `failed` one: that
+   * is final and would only ask for the same answer on every sync
+   * (`AURAT-0198`). With no `pending` left there is nothing to ask for. The
+   * response then lists, in `translations`, the current translation of every
+   * advisor message positioned at or after it that has one. It only reads —
+   * asking translates nothing.
    */
   translatedFrom: z.string().optional(),
 });
@@ -444,10 +454,11 @@ export const HistoryResponse = z.object({
   deletedIds: z.array(z.string()).default([]),
   /**
    * Current translations of the advisor messages positioned at or after
-   * `translatedFrom` (`AURAF-0024`). Replace by `messageId`: an entry may
-   * repeat a message that is also in `messages`, with the same state. An id
-   * the server does not know yields an empty list, not an error; the server
-   * bounds the list as it bounds `deletedIds`.
+   * `translatedFrom` (`AURAF-0024`), **oldest first** — in conversation
+   * order, as `deletedIds` (`AURAT-0198`). Replace by `messageId`: an entry
+   * may repeat a message that is also in `messages`, with the same state. An
+   * id the server does not know yields an empty list, not an error; the server
+   * bounds the list as it bounds `deletedIds` (200).
    *
    * Absent without `translatedFrom` — and absent from a server that does not
    * translate yet, which drops the unknown parameter. `.catch(undefined)`: an
@@ -503,8 +514,9 @@ export const WsServerEvent = z.discriminatedUnion('type', [
     messageId: z.string(),
   }),
   // A reply's translation settled (AURAF-0024): `translated`, or `failed` —
-  // `pending` arrives with the message itself in `message.new`. Replace the
-  // translation of `messageId` (our `Message.id`). No FCM push accompanies it;
+  // final either way (AURAT-0198) — and `pending` arrives with the message
+  // itself in `message.new`. Replace the translation of `messageId` (our
+  // `Message.id`). No FCM push accompanies it;
   // a backgrounded app catches up via `translatedFrom`. A client built before
   // this event drops it as an unknown type, as it did `message.deleted`.
   z.object({
