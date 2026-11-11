@@ -6,6 +6,7 @@ export * from './review';
 export * from './device';
 export * from './session';
 export * from './wallet';
+export * from './card-top-up';
 export * from './envelope';
 export * from './profile';
 export * from './tarot';
