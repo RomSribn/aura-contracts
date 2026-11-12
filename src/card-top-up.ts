@@ -3,9 +3,11 @@ import { z } from 'zod';
 /**
  * Card top-up on the web (`AURAD-0023`; BFF `AURAT-0207`, web `AURAT-0208`): a
  * third way into the prepaid USD wallet beside Google Play and the App Store.
- * The person pays on the payment provider's hosted page and comes back; the
- * BFF credits the wallet only on the provider's own word (its webhook, or the
- * BFF asking it), never because the browser returned to `returnPath`.
+ * The person pays either on the payment provider's hosted page (`hosted`) or
+ * in the provider's form mounted inside our own page (`embedded`, v0.33.0,
+ * BFF `AURAT-0211`, web `AURAT-0212`). Either way the BFF credits the wallet
+ * only on the provider's own word (its webhook, or the BFF asking it), never
+ * because the browser returned to `returnPath` or the form said "done".
  *
  * The provider is not named on the wire, the way the app never learns that
  * Chatwoot exists: these shapes say "card", the BFF knows it is Stripe.
@@ -22,11 +24,25 @@ export const CARD_TOP_UP_MIN_USD = 5;
 export const CARD_TOP_UP_MAX_USD = 120;
 
 /**
+ * How the payment page is shown (v0.33.0, `AURAD-0023` amendment 2026-11-11):
+ *
+ * - `hosted` — the person is sent to the provider's own page and comes back
+ *   to `returnPath` (or to it with `cancelled=1`);
+ * - `embedded` — the provider's form is mounted inside our page with the
+ *   `clientSecret` and `publicKey` of the answer. Cards and wallets finish in
+ *   place; a bank method (iDEAL, Bancontact) leaves for the bank and comes
+ *   back to `returnPath`. There is no "back" link: when the person closes the
+ *   form, the client calls `POST …/:paymentId/cancel`.
+ */
+export const CardCheckoutUi = z.enum(['hosted', 'embedded']);
+export type CardCheckoutUi = z.infer<typeof CardCheckoutUi>;
+
+/**
  * Body of `POST /v1/wallet/top-ups/card`. Answers `CardTopUpResponse`, `200`.
  *
  * `paymentId` is the client's id for this attempt and the idempotency key: a
- * repeat with the same id and amount answers the same hosted page while it is
- * still open. A new attempt needs a new id.
+ * repeat with the same id, amount and `ui` answers the same page (or the same
+ * form) while it is still open. A new attempt needs a new id.
  *
  * `amountMinor` is credited exactly — it must be a whole number of dollars
  * inside the rule above, or the answer is 400 `card_top_up_amount_invalid`.
@@ -34,22 +50,47 @@ export const CARD_TOP_UP_MAX_USD = 120;
  *
  * `returnPath` is a path on the site that made the request (its `Origin`
  * must be one of the BFF's web origins), e.g. `/checkout?payment=<id>`. The
- * provider sends the person back to it after paying, and to the same path
- * with `cancelled=1` added when they step back. Anything that is not a plain
- * path — a scheme, `//host`, a backslash — is 400
+ * provider sends the person back to it after paying, and — `hosted` only —
+ * to the same path with `cancelled=1` added when they step back. Anything
+ * that is not a plain path — a scheme, `//host`, a backslash — is 400
  * `card_top_up_return_path_invalid`.
+ *
+ * `ui` picks how the page is shown; left out, it is `hosted` (the v0.32.0
+ * behaviour).
  */
 export const CardTopUpRequest = z.object({
   paymentId: z.string().uuid(),
   amountMinor: z.number().int().positive(),
   returnPath: z.string().min(1).max(512).startsWith('/'),
+  ui: CardCheckoutUi.default('hosted'),
 });
 export type CardTopUpRequest = z.infer<typeof CardTopUpRequest>;
 
-export const CardTopUpResponse = z.object({
-  /** The provider's hosted payment page. Navigate to it; never embed it. */
-  redirectUrl: z.string().url(),
-});
+/**
+ * What to do next — by `kind`:
+ *
+ * - `redirect` — navigate to `redirectUrl`, never embed it. With `ui:
+ *   'hosted'` it is the provider's page. In **either** mode it can also be our
+ *   own `returnPath`: the person has already paid and the payment is waiting
+ *   to be confirmed — show its status, do not start a new attempt;
+ * - `embedded` (`ui: 'embedded'` only) — mount the provider's form with
+ *   `clientSecret`, initialised with `publicKey`. A repeat of the same
+ *   `paymentId` while the form is open answers the same `clientSecret`.
+ *   `clientSecret` lets anyone holding it pay this attempt: keep it in memory,
+ *   never in a URL, storage or a log.
+ */
+export const CardTopUpResponse = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('redirect'),
+    redirectUrl: z.string().url(),
+  }),
+  z.object({
+    kind: z.literal('embedded'),
+    clientSecret: z.string().min(1),
+    /** The provider's public (publishable) key — not a secret. */
+    publicKey: z.string().min(1),
+  }),
+]);
 export type CardTopUpResponse = z.infer<typeof CardTopUpResponse>;
 
 /**
@@ -90,7 +131,7 @@ export const CARD_TOP_UP_AMOUNT_INVALID = 'card_top_up_amount_invalid';
 export const CARD_TOP_UP_RETURN_PATH_INVALID = 'card_top_up_return_path_invalid';
 /**
  * 409: this `paymentId` is already used — by another account, with another
- * amount, or for an attempt that has finished (paid, declined, cancelled or
- * expired). Start again with a new id.
+ * amount, with another `ui`, or for an attempt that has finished (paid,
+ * declined, cancelled or expired). Start again with a new id.
  */
 export const CARD_TOP_UP_PAYMENT_CONFLICT = 'card_top_up_payment_conflict';
