@@ -22,7 +22,7 @@ server refuses a season by them, the clients draw by them (see `v0.27.0`).
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses, `SessionResponse`, `SessionPriceDiscount`, `SESSION_DISCOUNT_KINDS`, `SESSION_PRICE_CHANGED` | AURAD-0002, AURAT-0008, AURAF-0013, AURAF-0020 |
 | `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
-| `card-top-up` | `CardTopUpRequest`, `CardCheckoutUi`, `CardTopUpResponse`, `CardTopUpStatus`, `CardTopUpStatusResponse`, `CARD_TOP_UP_MIN_USD`, `CARD_TOP_UP_MAX_USD`, `CARD_TOP_UP_AMOUNT_INVALID`, `CARD_TOP_UP_RETURN_PATH_INVALID`, `CARD_TOP_UP_PAYMENT_CONFLICT` | AURAD-0023, AURAT-0207, AURAT-0208, AURAT-0211, AURAT-0212 |
+| `card-top-up` | `CardTopUpRequest`, `CardCheckoutUi`, `CardTopUpResponse`, `CardTopUpStatus`, `CardTopUpStatusResponse`, `CARD_TOP_UP_MIN_USD`, `CARD_TOP_UP_MAX_USD`, `CARD_TOP_UP_AMOUNT_INVALID`, `CARD_TOP_UP_RETURN_PATH_INVALID`, `CARD_TOP_UP_PAYMENT_CONFLICT`, `CARD_TOP_UP_TOO_MANY_STARTS` | AURAD-0023, AURAT-0207, AURAT-0208, AURAT-0211, AURAT-0212, AURAT-0213 |
 | `envelope` | `ApiError` | AURAI-0002 |
 | `profile` | `ProfileResponse` (+ `chat`), `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063, AURAF-0024 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
@@ -41,6 +41,15 @@ floats. Session and wallet shapes were aligned to the as-built BFF in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`;
 the chat-translation shapes of `v0.31.0` are forward contracts too, until the
 BFF's chat-settings and translation pipeline ship (`AURAF-0024`).
+
+`v0.34.0` adds the **elements sheet** to the card top-up (`AURAD-0023`
+amendment 2026-11-12; BFF `AURAT-0213`, web `AURAT-0212`): `CardCheckoutUi`
+gains `elements` — the client builds the sheet itself from the provider's
+elements (wallet buttons, card step, the required currency selector) with the
+same `{kind: 'embedded', clientSecret, publicKey}` answer. New refusal: `429`
+`card_top_up_too_many_starts` with `Retry-After`, when one account starts too
+many new attempts; a repeat of the same `paymentId` is never refused for it.
+Additive: v0.33.0 clients never send `elements`.
 
 `v0.33.0` adds the **embedded payment form** to the card top-up (`AURAD-0023`
 amendment 2026-11-11; BFF `AURAT-0211`, web `AURAT-0212`): the start request
