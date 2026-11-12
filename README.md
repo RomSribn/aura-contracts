@@ -22,7 +22,7 @@ server refuses a season by them, the clients draw by them (see `v0.27.0`).
 | `device` | `DeviceToken`, `RegisterDeviceRequest` | AURAF-0007-002 |
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses, `SessionResponse`, `SessionPriceDiscount`, `SESSION_DISCOUNT_KINDS`, `SESSION_PRICE_CHANGED` | AURAD-0002, AURAT-0008, AURAF-0013, AURAF-0020 |
 | `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
-| `card-top-up` | `CardTopUpRequest`, `CardTopUpResponse`, `CardTopUpStatus`, `CardTopUpStatusResponse`, `CARD_TOP_UP_MIN_USD`, `CARD_TOP_UP_MAX_USD`, `CARD_TOP_UP_AMOUNT_INVALID`, `CARD_TOP_UP_RETURN_PATH_INVALID`, `CARD_TOP_UP_PAYMENT_CONFLICT` | AURAD-0023, AURAT-0207, AURAT-0208 |
+| `card-top-up` | `CardTopUpRequest`, `CardCheckoutUi`, `CardTopUpResponse`, `CardTopUpStatus`, `CardTopUpStatusResponse`, `CARD_TOP_UP_MIN_USD`, `CARD_TOP_UP_MAX_USD`, `CARD_TOP_UP_AMOUNT_INVALID`, `CARD_TOP_UP_RETURN_PATH_INVALID`, `CARD_TOP_UP_PAYMENT_CONFLICT` | AURAD-0023, AURAT-0207, AURAT-0208, AURAT-0211, AURAT-0212 |
 | `envelope` | `ApiError` | AURAI-0002 |
 | `profile` | `ProfileResponse` (+ `chat`), `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063, AURAF-0024 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
@@ -41,6 +41,16 @@ floats. Session and wallet shapes were aligned to the as-built BFF in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`;
 the chat-translation shapes of `v0.31.0` are forward contracts too, until the
 BFF's chat-settings and translation pipeline ship (`AURAF-0024`).
+
+`v0.33.0` adds the **embedded payment form** to the card top-up (`AURAD-0023`
+amendment 2026-11-11; BFF `AURAT-0211`, web `AURAT-0212`): the start request
+takes `ui: 'hosted' | 'embedded'` (default `hosted` — v0.32.0 clients are
+unchanged), and `CardTopUpResponse` becomes a union on `kind` —
+`{kind: 'redirect', redirectUrl}` or `{kind: 'embedded', clientSecret,
+publicKey}`. A client in `embedded` mode still gets `redirect` when the person
+has already paid and the payment awaits confirmation. The same `paymentId` with
+another `ui` is `card_top_up_payment_conflict`. Additive for a v0.32.0 reader of
+`redirectUrl`; a TypeScript consumer narrows on `kind`.
 
 `v0.32.0` adds the **card top-up on the web** (`AURAD-0023`; BFF `AURAT-0207`, web
 `AURAT-0208`): `POST /v1/wallet/top-ups/card` with `{paymentId, amountMinor,
