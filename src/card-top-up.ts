@@ -3,11 +3,13 @@ import { z } from 'zod';
 /**
  * Card top-up on the web (`AURAD-0023`; BFF `AURAT-0207`, web `AURAT-0208`): a
  * third way into the prepaid USD wallet beside Google Play and the App Store.
- * The person pays either on the payment provider's hosted page (`hosted`) or
- * in the provider's form mounted inside our own page (`embedded`, v0.33.0,
- * BFF `AURAT-0211`, web `AURAT-0212`). Either way the BFF credits the wallet
- * only on the provider's own word (its webhook, or the BFF asking it), never
- * because the browser returned to `returnPath` or the form said "done".
+ * The person pays on the payment provider's hosted page (`hosted`), in the
+ * provider's form mounted inside our own page (`embedded`, v0.33.0, BFF
+ * `AURAT-0211`), or in our own sheet built from the provider's elements
+ * (`elements`, v0.34.0, BFF `AURAT-0213`, web `AURAT-0212`). Either way the BFF
+ * credits the wallet only on the provider's own word (its webhook, or the BFF
+ * asking it), never because the browser returned to `returnPath` or the form
+ * said "done".
  *
  * The provider is not named on the wire, the way the app never learns that
  * Chatwoot exists: these shapes say "card", the BFF knows it is Stripe.
@@ -24,7 +26,8 @@ export const CARD_TOP_UP_MIN_USD = 5;
 export const CARD_TOP_UP_MAX_USD = 120;
 
 /**
- * How the payment page is shown (v0.33.0, `AURAD-0023` amendment 2026-11-11):
+ * How the payment page is shown (v0.33.0 and v0.34.0, `AURAD-0023` amendments
+ * 2026-11-11 and 2026-11-12):
  *
  * - `hosted` — the person is sent to the provider's own page and comes back
  *   to `returnPath` (or to it with `cancelled=1`);
@@ -32,9 +35,21 @@ export const CARD_TOP_UP_MAX_USD = 120;
  *   `clientSecret` and `publicKey` of the answer. Cards and wallets finish in
  *   place; a bank method (iDEAL, Bancontact) leaves for the bank and comes
  *   back to `returnPath`. There is no "back" link: when the person closes the
- *   form, the client calls `POST …/:paymentId/cancel`.
+ *   form, the client calls `POST …/:paymentId/cancel`;
+ * - `elements` (v0.34.0) — the same attempt, but the client draws the sheet
+ *   itself from the provider's elements, initialised with the answer's
+ *   `clientSecret` and `publicKey`: the wallet buttons, the card step, and —
+ *   **required**, because the price is converted to the buyer's currency —
+ *   the currency selector (the client must allow that conversion when it
+ *   initialises). When the attempt asks for consent to our Terms, the client
+ *   shows the provider's terms element; when the account has no email, the
+ *   client collects one, since a card payment cannot finish without it. The
+ *   client confirms so that only a redirect-based method (a bank) leaves the
+ *   page, for `returnPath`. Closing the sheet — or moving to another amount,
+ *   which is a new attempt with a new `paymentId` — is `POST
+ *   …/:paymentId/cancel` for the old one.
  */
-export const CardCheckoutUi = z.enum(['hosted', 'embedded']);
+export const CardCheckoutUi = z.enum(['hosted', 'embedded', 'elements']);
 export type CardCheckoutUi = z.infer<typeof CardCheckoutUi>;
 
 /**
@@ -70,12 +85,13 @@ export type CardTopUpRequest = z.infer<typeof CardTopUpRequest>;
  * What to do next — by `kind`:
  *
  * - `redirect` — navigate to `redirectUrl`, never embed it. With `ui:
- *   'hosted'` it is the provider's page. In **either** mode it can also be our
+ *   'hosted'` it is the provider's page. In **any** mode it can also be our
  *   own `returnPath`: the person has already paid and the payment is waiting
  *   to be confirmed — show its status, do not start a new attempt;
- * - `embedded` (`ui: 'embedded'` only) — mount the provider's form with
+ * - `embedded` (`ui: 'embedded'` or `ui: 'elements'`) — mount the provider's
+ *   form (`embedded`) or build the sheet from its elements (`elements`) with
  *   `clientSecret`, initialised with `publicKey`. A repeat of the same
- *   `paymentId` while the form is open answers the same `clientSecret`.
+ *   `paymentId` while the attempt is open answers the same `clientSecret`.
  *   `clientSecret` lets anyone holding it pay this attempt: keep it in memory,
  *   never in a URL, storage or a log.
  */
@@ -135,3 +151,10 @@ export const CARD_TOP_UP_RETURN_PATH_INVALID = 'card_top_up_return_path_invalid'
  * declined, cancelled or expired). Start again with a new id.
  */
 export const CARD_TOP_UP_PAYMENT_CONFLICT = 'card_top_up_payment_conflict';
+/**
+ * 429: this account started too many new attempts in a short while (a new
+ * `paymentId` each). The `Retry-After` header says in how many seconds a new
+ * one is accepted. A repeat of an attempt already started — the same
+ * `paymentId` — is never refused for this.
+ */
+export const CARD_TOP_UP_TOO_MANY_STARTS = 'card_top_up_too_many_starts';
