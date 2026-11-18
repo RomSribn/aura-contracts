@@ -23,6 +23,7 @@ server refuses a season by them, the clients draw by them (see `v0.27.0`).
 | `session` | `Session`, `SessionStatus`, `SessionFinishReason`, `SessionPricing`, `SessionInvite`, book/extend/finish/active requests + responses, `SessionResponse`, `SessionPriceDiscount`, `SESSION_DISCOUNT_KINDS`, `SESSION_PRICE_CHANGED` | AURAD-0002, AURAT-0008, AURAF-0013, AURAF-0020 |
 | `wallet` | `WalletResponse`, `FirstSessionOffer`, `TopUpRequest`, `TopUpResponse`, `GooglePlayTopUpRequest`, `GooglePlayTopUpResponse`, `AppleTopUpRequest`, `AppleTopUpResponse` | AURAD-0002, AURAT-0007, AURAD-0010, AURAD-0017, AURAF-0017 |
 | `card-top-up` | `CardTopUpRequest`, `CardCheckoutUi`, `CardTopUpResponse`, `CardTopUpStatus`, `CardTopUpStatusResponse`, `CARD_TOP_UP_MIN_USD`, `CARD_TOP_UP_MAX_USD`, `CARD_TOP_UP_AMOUNT_INVALID`, `CARD_TOP_UP_RETURN_PATH_INVALID`, `CARD_TOP_UP_PAYMENT_CONFLICT`, `CARD_TOP_UP_TOO_MANY_STARTS` | AURAD-0023, AURAT-0207, AURAT-0208, AURAT-0211, AURAT-0212, AURAT-0213 |
+| `consent` | `SessionConsent`, `ExtensionConsent`, `TermsConsent`, `SessionConsentVersion`, `TermsConsentVersion`, `BOOKING_CONSENT_VERSIONS`, `NOW_CONSENT_VERSIONS`, `EXTENSION_CONSENT_VERSIONS`, `TERMS_CONSENT_VERSIONS`, `SESSION_CONSENT_TEXTS`, `CONSENT_REQUIRED`, `CONSENT_INVALID` | AURAD-0024, AURAT-0216, AURAT-0218 |
 | `envelope` | `ApiError` | AURAI-0002 |
 | `profile` | `ProfileResponse` (+ `chat`), `ProfilePatchRequest`, `Email`, `BirthDate` | AURAF-0015, AURAT-0063, AURAF-0024 |
 | `tarot` | `TarotCard`, `TarotCardId`, `LocalDate`, `DailyCardQuery`, `DailyCardResponse`, `MarkDailyCardDrawnRequest` | AURAD-0012, AURAT-0049 |
@@ -41,6 +42,19 @@ floats. Session and wallet shapes were aligned to the as-built BFF in
 `WsServerEvent` are forward contracts the BFF starts emitting in `AURAT-0009`;
 the chat-translation shapes of `v0.31.0` are forward contracts too, until the
 BFF's chat-settings and translation pipeline ship (`AURAF-0024`).
+
+`v0.35.0` adds **consents at the moment of the act** (`AURAD-0024`; BFF, web
+and app `AURAT-0216`, web `AURAT-0218`): an optional `consent` on
+`BookSessionRequest` (`booking-v1` for a slot, `now-v1` for `startNow`) and on
+`ExtendSessionRequest` (`extension-v1` only, `ExtensionConsent`) — the ticked
+"I want it now, I cannot withdraw once it has taken place" box — and an
+optional `termsConsent`
+(`terms-v1`) on `CardTopUpRequest`. The server stores each with its act. New
+refusals: `400` `consent_required` (from the web, when the server requires the
+consent; never for the app) and `consent_invalid` (another act's version). The
+text of a box changes, in any language, only with a new version — the clients
+pin every version's 24 translations in tests. Additive: v0.34.0 clients send
+nothing and stay valid.
 
 `v0.34.0` adds the **elements sheet** to the card top-up (`AURAD-0023`
 amendment 2026-11-12; BFF `AURAT-0213`, web `AURAT-0212`): `CardCheckoutUi`

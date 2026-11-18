@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AdvisorId } from './advisor';
+import { ExtensionConsent, SessionConsent } from './consent';
 
 /**
  * Paid session (AURAD-0009): a **scheduled** block of prepaid minutes, consumed
@@ -138,6 +139,16 @@ export const BookSessionRequest = z
      * server's price is charged as before.
      */
     expectedCostMinor: z.number().int().nonnegative().optional(),
+    /**
+     * The empty box before the button was ticked (`v0.35.0`, `AURAT-0216`):
+     * `booking-v1` with `startsAt`, `now-v1` with `startNow` — another act's
+     * version is 400 `consent_invalid`. Sent only when ticked (see
+     * `consent.ts`). Optional on the wire: the app's old versions do not send
+     * it and are never refused for that; from the web the server may require
+     * it (400 `consent_required`). A replay keeps the **original** consent —
+     * like the question, the repeat's one is neither compared nor written.
+     */
+    consent: SessionConsent.optional(),
   })
   .refine(
     request => (request.startNow === true) !== (request.startsAt !== undefined),
@@ -164,6 +175,13 @@ export const SESSION_PRICE_CHANGED = 'session_price_changed';
 export const ExtendSessionRequest = z.object({
   minutes: z.number().int().positive(),
   idempotencyKey: z.string().uuid(),
+  /**
+   * The box of this extension (`v0.35.0`, `AURAT-0216`): `extension-v1`, its
+   * own for every extension — the schema takes no other act's version.
+   * Optional and required the same way as on booking; a replay is answered
+   * without comparing it.
+   */
+  consent: ExtensionConsent.optional(),
 });
 export type ExtendSessionRequest = z.infer<typeof ExtendSessionRequest>;
 

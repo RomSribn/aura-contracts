@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { TermsConsent } from './consent';
+
 /**
  * Card top-up on the web (`AURAD-0023`; BFF `AURAT-0207`, web `AURAT-0208`): a
  * third way into the prepaid USD wallet beside Google Play and the App Store.
@@ -78,6 +80,17 @@ export const CardTopUpRequest = z.object({
   amountMinor: z.number().int().positive(),
   returnPath: z.string().min(1).max(512).startsWith('/'),
   ui: CardCheckoutUi.default('hosted'),
+  /**
+   * The web's own Terms box was ticked (`v0.35.0`, `AURAT-0216`,
+   * `AURAT-0218`): `terms-v1`. Sent with **every new attempt** — a new
+   * `paymentId`, a change of amount included; the box itself stays ticked
+   * across those, and the client opens the provider's session only after it
+   * was first ticked. When the server collects the Terms consent itself
+   * (instead of the provider's box), a new attempt without it is 400
+   * `consent_required` — no attempt is created, the provider is not called.
+   * A repeat of the same `paymentId` is answered as before, without it.
+   */
+  termsConsent: TermsConsent.optional(),
 });
 export type CardTopUpRequest = z.infer<typeof CardTopUpRequest>;
 
