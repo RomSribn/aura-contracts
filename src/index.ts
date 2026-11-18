@@ -4,6 +4,7 @@ export * from './chat';
 export * from './chat-settings';
 export * from './review';
 export * from './device';
+export * from './consent';
 export * from './session';
 export * from './wallet';
 export * from './card-top-up';
